@@ -15,13 +15,9 @@ const char * usage="Usage: %s [-eorbILifl] benchmark\n\
     -l log file (default to screen)\n"
 ;
 
-const char * usage2="Usage: %s -i input -f output\n";
+const char * usage2="Usage: %s -i input -c input_candi -f output\n";
 
 int main(int argc, char * argv[]){
-	/*unsigned int timer_compute;
-	float cudaTime_compute;
-	CUT_SAFE_CALL(cutCreateTimer(&timer_compute));
-	CUT_SAFE_CALL(cutStartTimer(timer_compute));*/
 	int c;
 	int mode=0;
 	double epsilon, omega, overlap_ratio;
@@ -29,11 +25,13 @@ int main(int argc, char * argv[]){
 	//char * logfile="/dev/null";
 	char * logfile=NULL;
 	char * input=NULL, * output=NULL;
+	char * input_candi = NULL;
 	bool input_flag = false, output_flag = false;
+	bool candi_flag = false;
 	Circuit::get_parameters(epsilon, omega, overlap_ratio, 
 			max_block_nodes, mode);
 
-	while( ( c = getopt(argc, argv, "i:f:e:o:r:b:l:LI")) != -1 ){
+	while( ( c = getopt(argc, argv, "i:c:f:e:o:r:b:l:LI")) != -1 ){
 		switch(c){
 		case 'e':
 			epsilon = atof(optarg);
@@ -60,6 +58,10 @@ int main(int argc, char * argv[]){
 			input = optarg;
 			input_flag = true;
 			break;
+		case 'c':
+			input_candi = optarg;
+			candi_flag = true;
+			break;
 		case 'f':
 			output = optarg;
 			output_flag = true;
@@ -71,7 +73,7 @@ int main(int argc, char * argv[]){
 		}
 	}
 	//if( argc == optind ) report_exit(usage2);
-	if( !input_flag || ! output_flag ){
+	if( !input_flag || !candi_flag || ! output_flag ){
 		fprintf(stderr, usage2, argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -86,7 +88,7 @@ int main(int argc, char * argv[]){
 	Parser parser(&cktlist);
 	clock_t t1,t2;
 	t1=clock();
-	parser.parse(input);
+	parser.parse(input, input_candi);
 	t2=clock();
 	clog<<"Parse time="<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
 	//if( cktlist.size()>0 ) cktlist[0]->check_sys();
@@ -105,7 +107,10 @@ int main(int argc, char * argv[]){
 		//char ofname[MAX_BUF];
 		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());
 		//freopen(ofname,"w", stdout);
-		cktlist[i]->print();
+		//cktlist[i]->print();
+		//cout<<endl;
+		//cktlist[i]->print_power();
+		cktlist[i]->print_matlab();
 		//clog<<(*ckt)<<endl;
 		clog<<endl;
 		// after that, this circuit can be released
@@ -121,7 +126,7 @@ int main(int argc, char * argv[]){
 
 	//fclose(stdout);
 	// output a single ground node
-	printf("G  %.5e\n", 0.0);
+	//printf("G  %.5e\n", 0.0);
 
 	close_logfile();
 	

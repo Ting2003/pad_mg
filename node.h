@@ -32,6 +32,7 @@ public:
 	int get_layer() const;
 
 	bool isX() const;
+	bool is_candi() const;
 	bool is_ground() const;
 
 	double get_value() const;
@@ -62,16 +63,20 @@ public:
 private:
 	double value;		// voltage
 	bool flag;		// mark if the node is an X
+	// mark if node is a pad candidate
+	bool flag_candi; 	
+	bool critical;		// mark if the node is a critical node for IR drop
 	Node * rep;		// representative, if somewhere is short-circuit
 	vector<size_t> blocklist;	// belongs to which block
 	vector<size_t> id_in_block;	// local index inside block	
 
 	Node * end[4];		// south - north (west-east) ends
 	double eqvr[4];		// equivalent resisotrs
+	double power; // power consumed
 };      	
 
 inline bool Node::isX() const{return flag;}
-
+inline bool Node::is_candi() const{return flag_candi;}
 //inline bool Node::is_ground() const{return name == "0";}
 // use a tricky way to speed up
 inline bool Node::is_ground() const{return pt.x<0;}

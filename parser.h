@@ -23,7 +23,7 @@ public:
 	~Parser();
 
 	// parser a input file and construct the circuit
-	void parse(char * filename);
+	void parse(char * filename1, char* filename2);
 
 	int get_num_layers() const;
 
@@ -36,6 +36,9 @@ private:
 	void insert_net_node(char * line);
 	void extract_node(char * str, Node & nd);
 	void update_node(Net * net);
+
+	//// functions for pad assignment
+	int assign_pads(char *line, Circuit *ckt);
 
 	char * filename;		  // input file name
 	int n_layer;			  // total number of layers

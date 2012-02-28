@@ -28,6 +28,7 @@
 #include "vec.h"
 #include "triplet.h"
 #include "block.h"
+#include <set>
 using namespace std;
 using namespace std::tr1;
 
@@ -37,6 +38,11 @@ typedef list<Net *> NetPtrList;
 typedef vector<Node *> NodePtrVector;
 typedef NetPtrVector NetList;
 
+struct VoltageLessThan{
+	inline bool operator() (const Node* node1, const Node* node2) {
+    	return node1->get_value() < node2->get_value();
+	}
+};
 // functor of translating Node * to void *
 namespace std{ 
 	namespace tr1{
@@ -75,6 +81,9 @@ public:
 
 	// solve for node voltage
 	void solve();
+
+	// calculate power consumption for each node
+	void compute_power();
 	
 	void set_blocklist(Node * nd);
 
@@ -86,6 +95,34 @@ public:
 
 	// C style output
 	void print();
+
+	/////////////////// function for Pad relocation //////
+	//////// variables ////////
+	double max_IRdrop;
+	double th_IRdrop;
+	// step is used to divide max_IRdrop into several classes
+	// min_IRdrop should be 0
+	double step;
+	vector <Node*> VDD_set;
+	vector <Node*> VDD_candi_set;
+	set<Node*, VoltageLessThan> CriticalNodes;
+	/////////// functions //////////
+	void print_power();
+
+	// output the format for matlab, to plot the 
+	// distribution figure;
+	void print_matlab();
+	void pad_set_init();
+
+	//locate the max IR drop numbers
+	void locate_max_IRdrop();
+	void locate_step();
+	void initialCost();
+	double penalty(double v, double vworst);
+	void SA();
+
+	////////////////// end of function for Pad relocation ////
+	
 	cholmod_common c, *cm;
 	size_t peak_mem;
 	size_t CK_mem;
@@ -262,4 +299,8 @@ bool compare_node_ptr(const Node *a, const Node *b);
 ostream & operator << (ostream & os, const NodePtrVector & nodelist);
 ostream & operator << (ostream & os, const NetList & nets);
 //ostream & operator << (ostream & os, const vector<Block > & block_info);
+
+
+
+
 #endif

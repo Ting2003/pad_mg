@@ -251,8 +251,8 @@ int Parser::create_circuits(){
 // Note: the file will be parsed twice
 // the first time is to find the layer information
 // and the second time is to create nodes
-void Parser::parse(char * filename){
-	this->filename = filename;
+void Parser::parse(char * filename1, char *filename2){
+	this->filename = filename1;
 
 	FILE * f;
 	f = fopen(filename, "r");
@@ -287,11 +287,36 @@ void Parser::parse(char * filename){
 		}
 	}
 	fclose(f);
+
+	this->filename = filename2;
+
+	f = fopen(filename, "r");
+	if( f == NULL ) 
+		report_exit("Input file not exist!\n");
+
 	// release map_node resource
 	for(size_t i=0;i<(*p_ckts).size();i++){
 		Circuit * ckt = (*p_ckts)[i];
+	// start to parse VDD candidate pad locations
+		while(fgets(line, MAX_BUF, f)!=NULL){
+			assign_pads(line, ckt);
+		}
+
 		ckt->map_node.clear();
-	}
+	}		
+	fclose(f);
 }// end of parse
 
 int Parser::get_num_layers() const{ return n_layer; }
+
+// assign pad location
+int Parser::assign_pads(char *line, Circuit*ckt){
+	static char sa[MAX_BUF];
+	Node *nd_ptr;
+	sscanf(line, "%s", sa);
+	if((nd_ptr =ckt->get_node(sa))!=NULL)
+		nd_ptr->flag_candi = true;
+	else 
+		return 0;
+	return 1;
+}

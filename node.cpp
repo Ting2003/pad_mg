@@ -5,7 +5,9 @@ using namespace std;
 
 // empty constructor
 Node::Node():name(""),pt(Point(-1,-1,-1)), rid(0),
-	value(0.0), flag(false), rep(NULL){
+	value(0.0), flag(false), 
+	flag_candi(false), 
+	critical(false),rep(NULL){
 	for(int i=0;i<6;i++) this->nbr[i] = NULL;
 	for(int i=0;i<4;i++){
 		eqvr[i]=0.0;
@@ -15,7 +17,9 @@ Node::Node():name(""),pt(Point(-1,-1,-1)), rid(0),
 
 Node::Node(string n, Point _pt, bool x, double v): 
 	name(n), pt(_pt), rid(0), 
-	value(v), flag(x), rep(NULL) {
+	value(v), flag(x), 
+	flag_candi(false), critical(false),
+	rep(NULL) {
 	for(int i=0;i<6;i++) this->nbr[i] = NULL;
 	for(int i=0;i<4;i++){
 		eqvr[i]=0.0;
@@ -29,6 +33,8 @@ Node::Node(const Node & nd){
 	rid = nd.rid;
 	value = nd.value;
 	flag = nd.flag;
+	flag_candi = nd.flag_candi;
+	critical = nd.critical;
 	rep = nd.rep;
 	for(int i=0;i<6;i++) this->nbr[i] = nd.nbr[i];
 	for(int i=0;i<4;i++){
