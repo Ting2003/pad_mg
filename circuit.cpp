@@ -57,6 +57,9 @@ Circuit::Circuit(string _name):name(_name),
 
 	for(int i=0;i<MAX_LAYER;i++)
 		layer_dir[i]=NA;
+	VDD_set.resize(0);
+	VDD_candi_set.resize(0);
+	CriticalNodes.clear();
 	peak_mem = 0;
 	CK_mem = 0;
 }
@@ -70,6 +73,9 @@ Circuit::~Circuit(){
 		for(it=ns.begin();it!=ns.end();++it)
 			delete *it;
 	}
+	VDD_set.clear();
+	VDD_candi_set.clear();
+	CriticalNodes.clear();
 }
 
 void Circuit::check_sys() const{
@@ -153,6 +159,152 @@ void Circuit::print(){
 		printf("%s  %.5e\n", nodelist[i]->name.c_str(), 
 				nodelist[i]->value);
 	}
+}
+
+void Circuit::print_power(){
+	// uncomment this if want to output to a file
+	//freopen("output.txt","w",stdout);
+
+	// don't output ground node
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		printf("%s  %.5e\n", nodelist[i]->name.c_str(), 
+				nodelist[i]->power);
+	}
+}
+
+void Circuit::print_matlab(){
+	// uncomment this if want to output to a file
+	//freopen("output.txt","w",stdout);
+
+	// don't output ground node
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		printf("%d %d  %.5e\n", nodelist[i]->pt.y+1, nodelist[i]->pt.x+1, 
+				1-nodelist[i]->value);
+	}
+}
+
+// find the max IRdrop and min IRdrop numbers, as well as steps
+void Circuit::locate_max_IRdrop(){
+	max_IRdrop=0;
+	double IRdrop = 0;
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		IRdrop = VDD-nodelist[i]->value;
+		if(IRdrop>max_IRdrop)
+			max_IRdrop = IRdrop;
+	}
+}
+
+void Circuit::locate_step(){
+	// define the step between the max and min IRdrop
+	if(max_IRdrop/VDD>= 0.05) 
+		step = 0.05;
+	else if(max_IRdrop/VDD>=0.02)
+		step = 0.02; 
+	else    step = 0;
+}
+
+// begin the iteration of relaxation
+// this is only for 2D case, so there is no nodelist->rep
+// for 3D, need to add nodelist->rep
+void Circuit::initialCost(){
+	th_IRdrop = max_IRdrop*0.8;
+	size_t N = nodelist.size()-1;
+	double cost=0;
+	double IRdrop;
+	for(size_t i=0;i<N;i++){
+		IRdrop = VDD-nodelist[i]->value;
+		if(IRdrop > th_IRdrop){
+			CriticalNodes.insert(nodelist[i]);
+			nodelist[i]->critical = true;
+		}
+		cost += penalty(IRdrop, max_IRdrop);
+	}
+	clog<<"initial cost before SA:" <<cost<<endl;
+}
+
+// simulated annealing
+void Circuit::SA(){
+/*
+	// copy the node voltages
+	double *new_voltage;
+	new_voltage = new double [nodelist.size()-1];
+
+	srand(100);
+	double change_cost=0; // cost change at every movement
+	//total cost change of all movement at beginning
+	double change_cost_total=0; 
+	double P = 0.5; // initial probability
+	double T = 100; // a initial guessi
+	int T_num = 0; // record # temperatures total
+	double Frozen_T=0.01;
+	double T_drop = 0.85; // T=T*T_drop
+	// probability to do the movement when cost_change>
+	// 0. exp(-cost_change/ Temperature);
+	double prob = 0; 
+	// # of movements at each temperature
+	int SourceM_can = 21;
+	int Movement = int(SourceM_can*1.5); 
+	double reject_percent = 0.90; 
+ 	// record the number of rejected Movement
+	int Move_num_rejected = 0; 	
+	int move; // record the movement
+
+	size_t N = nodelist.size()-1;
+	//mark if a node has been visited or not.
+	int *visited, timestamps; 	
+	visited = new int [N];
+	double *node_new_value;
+	node_new_value = new double [N];
+
+	int t_stamp = 0 ; // global timestamp in BFS
+	int move_ts = 0;  // global timestamp in each movement
+
+	for(size_t i=0; i<N; i++){
+		node_new_value = nodelist[i]->value;
+		timestamps[i] = 0;
+	}
+	int Vdd_remove_m; //later we will remove Vdd along Y
+	int Vdd_remove_n; //later we will remove Vdd along X
+	int Removed_pad; 
+
+	int Vdd_add_m;  //lr we will add Vdd along Y
+	int Vdd_add_n;  // later we will add Vdd along X
+	int Add_pad;
+	// --------------------------------
+	double error_iter = 0.000000005;
+	double error_boundary = 0.00000003;
+
+	h = 0.06;
+	omega = 2-h;
+	printf("the omega and h: %3.10lf %3.10lf\n",omega,h);
+
+	while (T>Frozen_T && 
+			Move_num_rejected<reject_percent*Movement){
+		Move_num_rejected = 0;   
+		for (move=0; move<Movement; move++){
+			move_ts ++;  		      
+			vector<int> nodesUpdate_move;
+			// the nodes updated in each movement 
+			nodesUpdate_move.resize(0);
+
+			//randomly pick a Vdd pad to remove
+			source_index = random(0, S_num-1);  // among all Vdd pads
+
+			Vdd_remove_m = Vsource_cX[source_index]; // location on the coarse grid
+
+			Vdd_remove_n = Vsource_cY[source_index]; // coarse grid
+
+			printf("the removed Vdd at %d %d \n", Vdd_remove_m, Vdd_remove_n);           
+
+			// find this node on the fine grid
+			//int node_temp_X=0;//index on the fine grid
+			//int node_temp_Y=0;     
+			//convertToFineGrid(Vdd_remove_m, Vdd_remove_n, node_temp_X, node_temp_Y);
+
+			Removed_pad = Vdd_remove_m*SourceM_can_s*N + Vdd_remove_n*SourceN_can_s; // location on the fine grid
+			Type[Removed_pad] = 2;
+*/
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -370,10 +522,33 @@ void Circuit::find_block_size(){
 }
 
 void Circuit::solve(){
+	// getting node voltages
 	//if( MODE == 0 )
 		//solve_IT();
 	//else
 		solve_LU();
+
+	// compute the power consumption
+	// compute_power();
+	//locate_maxmin_IRdrop();
+	//locate_step();
+	initialCost();
+	SA();
+}
+
+void Circuit::compute_power(){
+	NetList::iterator it;
+	NetList &ns = net_set[CURRENT];
+	for(it = ns.begin(); it!=ns.end();it++){
+		Node *nk = (*it)->ab[0]->rep;
+		Node *nl = (*it)->ab[1]->rep;
+		if(!nk->is_ground()){
+			nk->power = nk->value *(*it)->value;
+		}
+		if(!nl->is_ground()){
+			nl->power = nl->value *(*it)->value;
+		}
+	}
 }
 
 // solve Circuit
@@ -540,6 +715,8 @@ void Circuit::solve_LU_core(){
 // solve the node voltages using direct LU
 void Circuit::solve_LU(){
 	solve_init();
+	// build up two VDD pad sets
+	pad_set_init();	
 	solve_LU_core();
 }
 
@@ -1153,4 +1330,27 @@ void Circuit::merge_along_dir(Node * node, DIRECTION dir){
 	Net * net = new Net(RESISTOR, node->eqvr[dir], node, other);
 	node->nbr[dir] = other->nbr[ops] = net;
 	this->add_net(net);
+}
+
+inline double Circuit::penalty(double v, double vworst){
+	double penalty;
+	if(v>=0.8*vworst && v<0.98*vworst)
+		penalty = v*v*10;
+	else if(v>=0.98*vworst)
+		penalty = v*v*100;
+	else
+		penalty = 0;
+	return penalty;
+}
+
+// build up VDD_set and VDD_candi_set
+void Circuit::pad_set_init(){
+	for(size_t i=0;i<nodelist.size();i++){
+		if(nodelist[i]->is_candi()==true)
+			VDD_candi_set.push_back(nodelist[i]);
+		if(nodelist[i]->isX()==true)
+			VDD_set.push_back(nodelist[i]);
+	}
+	//for(size_t i=0;i<VDD_candi_set.size();i++)
+		//clog<<*VDD_candi_set[i]<<endl;
 }
