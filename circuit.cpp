@@ -178,7 +178,7 @@ void Circuit::print_matlab(){
 
 	// don't output ground node
 	for(size_t i=0;i<nodelist.size()-1;i++){
-		printf("%d %d  %.5e\n", nodelist[i]->pt.y+1, nodelist[i]->pt.x+1, 
+		printf("%ld %ld  %.5e\n", nodelist[i]->pt.y+1, nodelist[i]->pt.x+1, 
 				1-nodelist[i]->value);
 	}
 }
@@ -240,7 +240,9 @@ double Circuit::SA(double *rhs){
 	}
 	vector<Node *> nodesUpdate_move;
 	Node *rm_pad, *add_pad;
-	size_t rm_index;	
+	size_t rm_index;
+	rm_pad = NULL;
+	add_pad = NULL;	
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
@@ -1435,7 +1437,8 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	double eps0=1e-4;
 	double eps1 = 1e-4;
 	size_t LIMIT = 500;
-	double V_refer, V_refer_old;
+	double V_refer=0;
+	double V_refer_old=0;
 	Node *ref_node;
 	ref_node = rm_pad;
 	
