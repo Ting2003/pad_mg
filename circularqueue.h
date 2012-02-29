@@ -5,17 +5,19 @@
 #include <fstream>
 #include "node.h"
 class CircularQueue {
+public:
     int queueHead_, queueTail_ ;
     int maxSize_ ;
     vector<Node*> queue_ ;
 
-public:
     CircularQueue(int maxSize); 
     ~CircularQueue();
     void insert(Node* node);       
     Node* extractFront(); 
     bool isEmpty();
-    void reset(); 
+    void reset();
+    friend ostream & operator <<(ostream &os,
+const CircularQueue &q);  
 } ;
 
 #endif

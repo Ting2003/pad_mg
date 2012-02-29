@@ -5,6 +5,8 @@ CircularQueue::CircularQueue(int maxSize):
 	 queueHead_(0), queueTail_(0),
 	 maxSize_(maxSize) {
          	queue_.resize(maxSize) ;
+	for(size_t i=0;i<maxSize;i++)
+		queue_[i]=NULL;
     	}
 
 void CircularQueue::insert(Node* node) {
@@ -29,12 +31,15 @@ Node* CircularQueue::extractFront(){
       }
 
        Node* x = queue_[queueHead_] ;
-       queueHead_ = (queueHead_ + 1) % maxSize_ ;
+       queueHead_ = (queueHead_+1) % maxSize_ ;
        return x ;
 }
 
 bool CircularQueue::isEmpty(){
-    return queueHead_ == queueTail_ ;
+    if(queueHead_ == queueTail_)
+	return true;
+    else
+	return false;
 }
 
 CircularQueue::~CircularQueue(){
@@ -48,3 +53,11 @@ void CircularQueue::reset(){
      queueTail_ = 0 ;
 }
 
+ostream & operator << (ostream & os, const CircularQueue & q){
+	size_t i=q.queueHead_;
+	while(i < q.queueTail_){
+		os<<*q.queue_[i]<<endl;
+		i++;
+	}
+	return os;
+}
