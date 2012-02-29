@@ -184,7 +184,7 @@ void Circuit::print_matlab(){
 }
 
 // find the max IRdrop and min IRdrop numbers, as well as steps
-void Circuit::locate_max_IRdrop(){
+void Circuit::locate_maxIRdrop(){
 	max_IRdrop=0;
 	double IRdrop = 0;
 	for(size_t i=0;i<nodelist.size()-1;i++){
@@ -194,22 +194,12 @@ void Circuit::locate_max_IRdrop(){
 	}
 }
 
-void Circuit::locate_step(){
-	// define the step between the max and min IRdrop
-	if(max_IRdrop/VDD>= 0.05) 
-		step = 0.05;
-	else if(max_IRdrop/VDD>=0.02)
-		step = 0.02; 
-	else    step = 0;
+void Circuit::locate_thIRdrop(){
+	th_IRdrop = max_IRdrop*0.8;
 }
 
-// begin the iteration of relaxation
-// this is only for 2D case, so there is no nodelist->rep
-// for 3D, need to add nodelist->rep
-void Circuit::initialCost(){
-	th_IRdrop = max_IRdrop*0.8;
+void Circuit::build_criticalNodes(){
 	size_t N = nodelist.size()-1;
-	double cost=0;
 	double IRdrop;
 	for(size_t i=0;i<N;i++){
 		IRdrop = VDD-nodelist[i]->value;
@@ -217,96 +207,105 @@ void Circuit::initialCost(){
 			CriticalNodes.insert(nodelist[i]);
 			nodelist[i]->critical = true;
 		}
+	}
+}
+
+// begin the iteration of relaxation
+// this is only for 2D case, so there is no nodelist->rep
+// for 3D, need to add nodelist->rep
+double Circuit::SACost(){
+	double cost=0;
+	double IRdrop;
+	for(size_t i=0;i<nodelist.size();i++){
+		IRdrop = VDD-nodelist[i]->value;	
 		cost += penalty(IRdrop, max_IRdrop);
 	}
-	clog<<"initial cost before SA:" <<cost<<endl;
+	return cost;
 }
 
 // simulated annealing
-void Circuit::SA(){
-/*
-	// copy the node voltages
-	double *new_voltage;
-	new_voltage = new double [nodelist.size()-1];
-
-	srand(100);
-	double change_cost=0; // cost change at every movement
+double Circuit::SA(double *rhs){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
 	double P = 0.5; // initial probability
-	double T = 100; // a initial guessi
-	int T_num = 0; // record # temperatures total
-	double Frozen_T=0.01;
 	double T_drop = 0.85; // T=T*T_drop
 	// probability to do the movement when cost_change>
 	// 0. exp(-cost_change/ Temperature);
-	double prob = 0; 
-	// # of movements at each temperature
-	int SourceM_can = 21;
-	int Movement = int(SourceM_can*1.5); 
-	double reject_percent = 0.90; 
- 	// record the number of rejected Movement
-	int Move_num_rejected = 0; 	
-	int move; // record the movement
-
-	size_t N = nodelist.size()-1;
-	//mark if a node has been visited or not.
-	int *visited, timestamps; 	
-	visited = new int [N];
-	double *node_new_value;
-	node_new_value = new double [N];
-
-	int t_stamp = 0 ; // global timestamp in BFS
-	int move_ts = 0;  // global timestamp in each movement
-
-	for(size_t i=0; i<N; i++){
-		node_new_value = nodelist[i]->value;
-		timestamps[i] = 0;
+	
+	// copy the node voltages
+	double *new_voltages; 
+	new_voltages = new double [nodelist.size()-1];
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		new_voltages[i] = nodelist[i]->value;
 	}
-	int Vdd_remove_m; //later we will remove Vdd along Y
-	int Vdd_remove_n; //later we will remove Vdd along X
-	int Removed_pad; 
+	vector<Node *> nodesUpdate_move;
+	Node *rm_pad, *add_pad;
+	size_t rm_index;	
 
-	int Vdd_add_m;  //lr we will add Vdd along Y
-	int Vdd_add_n;  // later we will add Vdd along X
-	int Add_pad;
-	// --------------------------------
-	double error_iter = 0.000000005;
-	double error_boundary = 0.00000003;
+	double T = 100; // a initial guess
+	double Frozen_T=0.01;
+	size_t REJECT_LIMIT=30;
+	size_t Movement = 30;
+	size_t Move_num_rejected=0;
+	size_t iter_move=0; size_t iter_T = 0;
+	while (T>Frozen_T && Move_num_rejected<REJECT_LIMIT){
+		Move_num_rejected = 0;  
+		//iter_T;
+		for (iter_move=0; iter_move<Movement; iter_move++){
+			// compute one movement
+			one_move(nodesUpdate_move, rhs, rm_pad, 
+				add_pad, rm_index, iter_move);
+			double change_cost = update_cost(
+				nodesUpdate_move, iter_T, 
+				change_cost_total, new_voltages);
+			if(change_cost<0)
+				accept_move(nodesUpdate_move, 
+				  new_voltages, rm_index, add_pad);
+			else{
+				double prob = exp(-change_cost/T);
+				if(acceptProb(prob)==true)
+					accept_move(nodesUpdate_move,
+					  new_voltages, rm_index, 
+					  add_pad);
+				else{
+					reject_move(nodesUpdate_move,
+					  rm_pad, add_pad,
+					  new_voltages);
+					Move_num_rejected++;
+				}
+			}
+			// recompute worst voltage drop
+			recompute_worst_IRdrop(new_voltages);	
+		}
+		if(iter_T ==0){//calculate the start temperature
+			if(change_cost_total >= 0)
+				T = -(change_cost_total/Movement)
+					/log(P);
+			else
+				T = (change_cost_total/Movement)
+					/log(P);
+			//printf("the initial temperature is %f \n", T);
+		}//
+		//printf("the temperature and probablity of accept is %f, %f \n", T, prob);
 
-	h = 0.06;
-	omega = 2-h;
-	printf("the omega and h: %3.10lf %3.10lf\n",omega,h);
 
-	while (T>Frozen_T && 
-			Move_num_rejected<reject_percent*Movement){
-		Move_num_rejected = 0;   
-		for (move=0; move<Movement; move++){
-			move_ts ++;  		      
-			vector<int> nodesUpdate_move;
-			// the nodes updated in each movement 
-			nodesUpdate_move.resize(0);
+		T *= T_drop;
+		iter_T++;
+	}
+	//printf("the total # if iterations: %d \n", iter);
+	//printf("the average change of cost is %f \n",  change_cost_total/Movement);
+	//printf("the final temperature is %f \n", Temperature);
+	//printf("the total temperature changes is %d\n", temp_num);
+	//printf("the # of movement at each temperature:%d \n",Movement);
 
-			//randomly pick a Vdd pad to remove
-			source_index = random(0, S_num-1);  // among all Vdd pads
+	locate_maxIRdrop();
+	locate_thIRdrop();
+	double final_cost = SACost();
 
-			Vdd_remove_m = Vsource_cX[source_index]; // location on the coarse grid
-
-			Vdd_remove_n = Vsource_cY[source_index]; // coarse grid
-
-			printf("the removed Vdd at %d %d \n", Vdd_remove_m, Vdd_remove_n);           
-
-			// find this node on the fine grid
-			//int node_temp_X=0;//index on the fine grid
-			//int node_temp_Y=0;     
-			//convertToFineGrid(Vdd_remove_m, Vdd_remove_n, node_temp_X, node_temp_Y);
-
-			Removed_pad = Vdd_remove_m*SourceM_can_s*N + Vdd_remove_n*SourceN_can_s; // location on the fine grid
-			Type[Removed_pad] = 2;
-*/
-
-}
-
+	nodesUpdate_move.clear();
+	delete [] new_voltages;
+	return final_cost;
+}	
 ///////////////////////////////////////////////////////////////////////////////
 // Computation Functions
 
@@ -361,6 +360,7 @@ void Circuit::solve_init(){
 	clog<<"ratio =    "<<ratio  <<endl;
 
 	net_id.clear();
+	net_id_pad.clear();
 }
 
 // partition the circuit to X_BLOCKS * Y_BLOCKS blocks
@@ -530,10 +530,31 @@ void Circuit::solve(){
 
 	// compute the power consumption
 	// compute_power();
-	//locate_maxmin_IRdrop();
-	//locate_step();
-	initialCost();
-	SA();
+	locate_maxIRdrop();
+	locate_thIRdrop();
+	// build initial critical nodes list
+	build_criticalNodes();
+	double cost = 0;
+	cost = SACost();
+	clog<<"initial cost before SA:" <<cost<<endl;
+	double *b;
+	b = new double [nodelist.size()-1];
+	for(size_t i=0;i<nodelist.size();i++)
+		b[i]=0;
+	stamp_rhs_SA(b);
+	cost = SA(b);
+	delete [] b;
+	clog<<"final cost after SA:" <<cost<<endl;
+}
+
+// restamp current into rhs for SA computation
+void Circuit::stamp_rhs_SA(double* b){
+	int type=CURRENT;
+	NetList & ns = net_set[type];
+	NetList::iterator it;
+
+	for(it=ns.begin();it!=ns.end();++it)
+		stamp_current(b, (*it));
 }
 
 void Circuit::compute_power(){
@@ -927,6 +948,8 @@ void Circuit::stamp_by_set(Matrix & A, double* b){
 					continue; // it's a 0v via
 				stamp_VDD(A, b, (*it));
 			}
+			break;
+		case PAD:
 			break;
 		default:
 			report_exit("Unknwon net type\n");
@@ -1350,7 +1373,241 @@ void Circuit::pad_set_init(){
 			VDD_candi_set.push_back(nodelist[i]);
 		if(nodelist[i]->isX()==true)
 			VDD_set.push_back(nodelist[i]);
+	}	
+}
+
+void Circuit::one_move(vector<Node*>&nodesUpdate_move,
+	double *rhs, Node *rm_pad, Node *add_pad,  
+	size_t &rm_pad_index, size_t iter_move){
+	size_t VDD_num = VDD_set.size();
+	vector<Node*> nbr_pads;
+	size_t nbr_index;
+	Node *ref_node;
+
+	// the nodes updated in each movement 
+	nodesUpdate_move.resize(0);
+
+	//1. randomly pick a Vdd pad to remove
+	rm_pad_index = random_gen(0, VDD_num-1); 
+	rm_pad = VDD_set[rm_pad_index];	
+	// It is no more X node
+	rm_pad->flag= false; 
+
+	// find its neiboring pad candidates	
+	form_nbr_pads(rm_pad, nbr_pads);	
+	if(nbr_pads.size()==0) return;
+	
+	// random select a valid nbr pad
+	nbr_index = random_gen(0, nbr_pads.size()-1);
+	add_pad = nbr_pads[nbr_index];
+	add_pad->flag = true; 
+	rm_pad->value=0;
+	add_pad->value=VDD;	
+	ref_node = rm_pad;
+	// update pad value and nbr area by iterations
+	update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
+			iter_move, rhs);
+}
+
+void Circuit::form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads){
+	Node *na, *nb;
+	Net *net;
+	//find its neighboring pad nodes
+	nbr_pads.resize(0);
+	for(size_t j=0;j<4;j++){
+		if(rm_pad->nbr_pad[j]!=NULL){
+			net = rm_pad->nbr_pad[j];
+			na = net->ab[0];
+			nb = net->ab[1];
+			if(rm_pad->name==na->name &&
+					nb->isX()==false)
+				nbr_pads.push_back(nb);
+			else if(rm_pad->name==
+					nb->name && na->isX()==false)
+				nbr_pads.push_back(na);	
+		}
 	}
-	//for(size_t i=0;i<VDD_candi_set.size();i++)
-		//clog<<*VDD_candi_set[i]<<endl;
+}
+
+void Circuit::update_pad_value(Node *rm_pad, Node *add_pad, 
+	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs){
+	size_t iter = 0;
+	double eps0=1e-4;
+	double eps1 = 1e-4;
+	size_t LIMIT = 500;
+	double V_refer, V_refer_old;
+	Node *ref_node;
+	ref_node = rm_pad;
+	
+	int *timestamps;
+	timestamps = new int [nodelist.size()-1];
+	for(size_t i=0;i<nodelist.size();i++)
+		timestamps[i]=0;
+
+	size_t MAX_QUEUE_SIZE = nodelist.size()-1;
+	CircularQueue q(MAX_QUEUE_SIZE);
+
+	while(fabs(V_refer-ref_node->value) > eps0 && iter<LIMIT){
+		V_refer_old = V_refer;
+		V_refer = ref_node->value;
+		q.reset();
+		q.insert(rm_pad);
+		q.insert(add_pad);
+		rm_pad->flag_visited = iter; 
+		add_pad->flag_visited = iter;
+		double V_improve = 0;
+		while(!q.isEmpty() && (V_improve>eps1)){
+			Node *nd = q.extractFront();
+			if(timestamps[nd->rid]!=iter_move){
+				nodesUpdate_move.push_back(nd);
+				timestamps[nd->rid] = iter_move;
+			}
+			// update node value with neighbors
+			V_improve = update_node_value(iter, 
+					rm_pad, nd, rhs);
+			// update_queue with nd's neighbors
+			update_queue(q, nd, iter);	
+		}
+		iter++;
+	}
+	delete [] timestamps;	
+}
+
+// rhs is the current vector
+double Circuit::update_node_value(int iter, Node *rm_pad, Node *nd, double *rhs){
+	if(nd->isX()==true) return 0;
+	double h = 0.06;
+	double omega = 2-h;
+	printf("the omega and h: %3.10lf %3.10lf\n",omega,h);
+	double V_old=0;
+	double V_temp = 0;
+	double G = 0;
+	Net *net;
+	Node *nbr, *na, *nb;
+	double sum = 0;
+	
+	V_old = nd->value; 
+	// update nd->value
+	for(int i=0;i<6;i++){
+		net = nd->nbr[i];
+		if(net ==NULL) continue;
+		G = 1.0/net->value;
+		sum += G;
+		na = net->ab[0]; nb = net->ab[1];
+		if(nd->name == na->name) nbr = nb;
+		else	nbr = na;
+		V_temp += G*nbr->value;
+	}
+	V_temp += rhs[nd->rid];
+	V_temp /=sum;
+	if(iter ==0 && nd->name==rm_pad->name)
+		nd->value  = V_temp;
+	else
+		nd->value = (1-omega)*nd->value + omega*V_temp;
+ 	double V_improve = fabs(nd->value - V_old);
+	return V_improve;
+}
+
+void Circuit::update_queue(CircularQueue &q, Node *nd, size_t iter){
+	Net * net; Node *nbr;
+	Node *na, *nb;
+	for(int i=0;i<4;i++){
+		net = nd->nbr_pad[i];
+		if(net==NULL) continue;
+		// find the other node, which is nbr
+		na = net->ab[0];
+		nb = net->ab[1];
+		if(nd->name == na->name)
+			nbr = nb;
+		else	nbr = na;
+		if(nbr->flag_visited != iter){
+			q.insert(nbr);
+			nbr->flag_visited = iter;
+		}
+	}
+}
+
+// update cost and total_cost
+double Circuit::update_cost(vector<Node*> &nodesUpdate_move, 
+		int iter_T, double &change_cost_total,
+		double *new_voltages){
+	double change_cost = 0;
+	Node *nd;
+	for (size_t i=0; i<nodesUpdate_move.size();i++){
+		nd = nodesUpdate_move[i] ;
+		change_cost += penalty(VDD-nd->value, max_IRdrop)-
+			penalty(VDD-new_voltages[nd->rid], max_IRdrop);
+	}
+	if (iter_T==0){
+		// accept all the movements at the beginning
+		change_cost_total += change_cost;
+	}
+	return change_cost;
+}
+
+void Circuit::accept_move(vector<Node*>&nodesUpdate_move, 
+		double *new_voltages, size_t rm_index, 
+		Node *add_pad){
+	Node *nd;
+	for (size_t i=0; i<nodesUpdate_move.size();i++){
+		nd = nodesUpdate_move[i] ;
+
+		if (new_voltages[nd->rid] != nd->value) {
+			if (nd->critical==true){
+				// remove the node from critical 
+				// set O(logN)
+				CriticalNodes.erase(nd) ; 
+				nd->critical = false ; 
+			}
+			new_voltages[nd->rid] = nd->value; 
+			if ((VDD - nd->value) > th_IRdrop) {
+				// insert it into the critical set 
+				// O(logN)
+				CriticalNodes.insert(nd) ; 
+				nd->critical = true ;
+			}
+		}
+
+	}
+	//keep the change of Vdd
+	VDD_set[rm_index]=add_pad;
+	   
+        //printf("movement %d accepted because change of cost 
+        //%f\n", move, change_cost);
+}
+
+void Circuit::reject_move(vector<Node*>&nodesUpdate_move, 
+	Node *rm_pad, Node *add_pad, double *new_voltages){
+	Node *nd;
+	for (size_t i=0; i<nodesUpdate_move.size();i++){
+		nd = nodesUpdate_move[i];
+		nd->value = new_voltages[nd->rid];
+	}
+	rm_pad->flag = true; // rm_pad isX again
+	add_pad->flag = false; //add_pad is not X again
+	//printf("movement %d rejected because change of cost %f\n",
+	//move, change_cost); 
+}
+
+void Circuit::recompute_worst_IRdrop(double *new_voltages){
+	Node *nd;
+	if (!CriticalNodes.empty()) {
+		nd = *CriticalNodes.begin() ; // the first element in criticalNodes will be the node with smallest volt
+		max_IRdrop = new_voltages[nd->rid] ;
+	}
+	else {
+		locate_maxIRdrop();
+		locate_thIRdrop();
+		build_criticalNodes();	
+	} 
+	//printf("the worst voltage drop: %f\n", max_IRdrop);
+}
+
+bool Circuit::acceptProb(double p){
+	return rand()<p*((double)RAND_MAX+1.0);
+}
+
+int random_gen(int min, int max){
+    return min + int( ((max-min) +1) * (rand() /(RAND_MAX + 1.0))) ; 
+
 }

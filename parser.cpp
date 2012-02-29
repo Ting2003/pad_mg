@@ -121,6 +121,8 @@ void Parser::insert_net_node(char * line){
 	case 'I':
 		net_type = CURRENT;
 		break;
+	case 'p':
+	case 'P':break;
 	default:
 		report_exit("Invalid net type!\n");
 		break;
@@ -309,14 +311,48 @@ void Parser::parse(char * filename1, char *filename2){
 
 int Parser::get_num_layers() const{ return n_layer; }
 
-// assign pad location
+// assign pad location and neighbors
 int Parser::assign_pads(char *line, Circuit*ckt){
+	static char sname[MAX_BUF];
 	static char sa[MAX_BUF];
-	Node *nd_ptr;
-	sscanf(line, "%s", sa);
-	if((nd_ptr =ckt->get_node(sa))!=NULL)
-		nd_ptr->flag_candi = true;
-	else 
-		return 0;
+	static char sb[MAX_BUF];
+	static Node nd[2];
+	double value = 0;
+	Node * nd_ptr[2];	// this will be set to the two nodes found
+	sscanf(line, "%s %s %s", sname, sa, sb);
+
+	nd_ptr[0] = ckt->get_node(sa);
+	nd_ptr[1] = ckt->get_node(sb);
+
+	for(int i=0;i<2;i++)
+		if(nd_ptr[i]!=NULL)
+			nd_ptr[i]->flag_candi = true;
+	
+	// create pad nets
+	NET_TYPE net_type = PAD;
+	Net *net = new Net(net_type, value, nd_ptr[0], nd_ptr[1]);
+	ckt->add_net_pad(net);
+	update_node_pad(net);
 	return 1;
+}
+
+// set pad neighbors
+void Parser::update_node_pad(Net* net){
+	Node *a=net->ab[0], *b=net->ab[1];
+
+	if( a->get_layer() == b->get_layer() && a->pt != b->pt ){
+		// horizontal or vertical resistor in the same layer
+		if( a->pt.y == b->pt.y ){// horizontal
+			if(a->pt.x > b->pt.x) swap<Node*>(a,b);
+			a->set_nbr_pad(EAST, net);
+			b->set_nbr_pad(WEST, net);
+		}
+		else if( a->pt.x == b->pt.x ){// vertical
+			if(a->pt.y > b->pt.y) swap<Node*>(a,b);
+			a->set_nbr_pad(NORTH, net);
+			b->set_nbr_pad(SOUTH, net);
+		}
+		else
+			report_exit("Diagonal net\n");
+	}	
 }

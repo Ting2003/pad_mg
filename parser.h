@@ -36,6 +36,7 @@ private:
 	void insert_net_node(char * line);
 	void extract_node(char * str, Node & nd);
 	void update_node(Net * net);
+	void update_node_pad(Net * net);
 
 	//// functions for pad assignment
 	int assign_pads(char *line, Circuit *ckt);

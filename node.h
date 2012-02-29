@@ -22,6 +22,7 @@ public:
 	Node(const Node & nd);
 	Node & operator = (const Node & nd);
 	void set_nbr(DIRECTION dir, Net * name);
+	void set_nbr_pad(DIRECTION dir, Net * name);
 	Net * get_nbr_net(DIRECTION dir) const;
 
 	// Ting: get_nbr_node
@@ -57,12 +58,14 @@ public:
 	// {TOP, BOTTOM, EAST, WEST}
 	// {TOP, BOTTOM, NORTH, SOUTH}
 	Net * nbr[6];		// neighboring nets
+	Net * nbr_pad[4];	// neighboring pad nets
 
 	size_t rid;		// id in rep_list
 
 private:
 	double value;		// voltage
 	bool flag;		// mark if the node is an X
+	size_t flag_visited;
 	// mark if node is a pad candidate
 	bool flag_candi; 	
 	bool critical;		// mark if the node is a critical node for IR drop
@@ -88,6 +91,9 @@ inline double Node::get_value() const{return value;}
 inline void Node::set_value(double v){value = v;}
 
 inline void Node::set_nbr(DIRECTION dir, Net * net){ nbr[dir] = net; }
+
+inline void Node::set_nbr_pad(DIRECTION dir, Net * net){ nbr_pad[dir] = net; }
+
 
 inline vector<size_t> & Node::get_block_id() const{return rep->blocklist;}
 

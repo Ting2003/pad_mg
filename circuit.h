@@ -29,6 +29,7 @@
 #include "triplet.h"
 #include "block.h"
 #include <set>
+#include "circularqueue.h"
 using namespace std;
 using namespace std::tr1;
 
@@ -72,6 +73,7 @@ public:
 
 	// add a net into netset
 	bool add_net(Net * net);
+	bool add_net_pad(Net * net);
 
 	bool has_node(string name) const;
 	bool has_net(string name) const;
@@ -115,12 +117,31 @@ public:
 	void pad_set_init();
 
 	//locate the max IR drop numbers
-	void locate_max_IRdrop();
-	void locate_step();
-	void initialCost();
+	void locate_maxIRdrop();
+	void locate_thIRdrop();
+	void build_criticalNodes();
+	double SACost();
+	bool acceptProb(double p);
 	double penalty(double v, double vworst);
-	void SA();
-
+	void stamp_rhs_SA(double* b);
+	double SA(double *rhs);
+	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
+	void update_queue(CircularQueue &q, Node *nd, size_t iter);
+	double update_node_value(int iter, Node *rm_pad, Node *nd, double *rhs);
+	void update_pad_value(Node *rm_pad, Node *add_pad, 
+	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs);
+	void one_move(vector<Node*>&nodesUpdate_move,
+	  double *rhs, Node *rm_pad, Node *add_pad, 
+	  size_t &rm_pad_index, size_t iter_move);
+	double update_cost(vector<Node*> &nodesUpdate_move, 
+		int iter_T, double &change_cost_total,
+		double *new_voltages);
+	void accept_move(vector<Node*>&nodesUpdate_move, 
+		double *new_voltages, size_t rm_index,
+		Node *add_pad);
+	void reject_move(vector<Node*>&nodesUpdate_move, 
+		Node *rm_pad, Node *add_pad, double *new_voltages);
+	void recompute_worst_IRdrop(double *new_voltages);
 	////////////////// end of function for Pad relocation ////
 	
 	cholmod_common c, *cm;
@@ -219,6 +240,7 @@ private:
 
 	// mapping from Net pointer to their index in netlist
 	unordered_map<Net*, size_t> net_id;
+	unordered_map<Net*, size_t> net_id_pad;
 
 	// circuit name
 	string name;
@@ -254,6 +276,14 @@ inline bool Circuit::add_node(Node * node){
 inline bool Circuit::add_net(Net * net){
 	if( net->type == RESISTOR )
 		net_id[net] = net_set[net->type].size();
+	net_set[net->type].push_back(net);
+	return true;
+}
+
+// adds a net into netset
+inline bool Circuit::add_net_pad(Net * net){
+	if( net->type == PAD )
+		net_id_pad[net] = net_set[net->type].size();
 	net_set[net->type].push_back(net);
 	return true;
 }
@@ -300,7 +330,7 @@ ostream & operator << (ostream & os, const NodePtrVector & nodelist);
 ostream & operator << (ostream & os, const NetList & nets);
 //ostream & operator << (ostream & os, const vector<Block > & block_info);
 
-
+int random_gen(int min, int max);
 
 
 #endif
