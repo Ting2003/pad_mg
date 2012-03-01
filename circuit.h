@@ -127,11 +127,11 @@ public:
 	double SA(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
-	double update_node_value(int iter, Node *rm_pad, Node *nd, double *rhs);
+	double update_node_value(int iter, Node *nd, double *rhs);
 	void update_pad_value(Node *rm_pad, Node *add_pad, 
 	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs);
 	void one_move(vector<Node*>&nodesUpdate_move,
-	  double *rhs, Node *rm_pad, Node *add_pad, 
+	  double *rhs, Node *&rm_pad, Node *&add_pad, 
 	  size_t &rm_pad_index, size_t iter_move);
 	double update_cost(vector<Node*> &nodesUpdate_move, 
 		int iter_T, double &change_cost_total,

@@ -234,10 +234,10 @@ double Circuit::SA(double *rhs){
 	
 	// copy the node voltages
 	size_t N = nodelist.size()-1;
-	double *new_voltages; 
-	new_voltages = new double [N];
+	double *old_voltages; 
+	old_voltages = new double [N];
 	for(size_t i=0;i<N;i++){
-		new_voltages[i] = nodelist[i]->value;
+		old_voltages[i] = nodelist[i]->value;
 	}
 	vector<Node *> nodesUpdate_move;
 	Node *rm_pad, *add_pad;
@@ -247,62 +247,45 @@ double Circuit::SA(double *rhs){
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
-	size_t REJECT_LIMIT=30;
-	size_t Movement = 30;
+	size_t REJECT_LIMIT=500;
+	size_t Movement = 500;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
-	while (iter_T<1){//T>Frozen_T && Move_num_rejected<REJECT_LIMIT){
+	while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
 		Move_num_rejected = 0;  
 		//iter_T;
-		for (iter_move=1; iter_move<2;iter_move++){//Movement; iter_move++){
-		
-			clog<<"before one move. "<<endl;
-			// compute one movement
-			
-			for(size_t j=0;j<nodelist.size();j++)
-				if(nodelist[j]->name=="n0_32_100"){
-					cout<<*nodelist[j]<<endl;
-					break;
-				}
+		for (iter_move=1; iter_move<Movement; iter_move++){
+			// compute one movement	
 			one_move(nodesUpdate_move, rhs, rm_pad, 
 				add_pad, rm_index, iter_move);
-			for(size_t j=0;j<nodelist.size();j++)
-				if(nodelist[j]->name=="n0_31_100"){
-					cout<<*nodelist[j]<<endl;
-					break;
-				}
-			clog<<"after one move. "<<endl;
-			/*
 			double change_cost = update_cost(
 				nodesUpdate_move, iter_T, 
-				change_cost_total, new_voltages);
-			clog<<"after change cost: "<<change_cost<<endl;
+				change_cost_total, old_voltages);
+			//cout<<"after change cost: "<<
+				//change_cost<<endl;
+			//cout<<"iter_move, change_cost: "<<
+				//iter_move<<" "<<change_cost<<endl;
 			if(change_cost<0)
 				accept_move(nodesUpdate_move, 
-				  new_voltages, rm_index, add_pad);
+				  old_voltages, rm_index, add_pad);
 			else{
 				double prob = exp(-change_cost/T);
 				if(acceptProb(prob)==true){
-					clog<<"accept with p: "<<endl;
 					accept_move(nodesUpdate_move,
-					  new_voltages, rm_index, 
+					  old_voltages, rm_index, 
 					  add_pad);
-				}
-				else{
-					clog<<"rejected. "<<endl;
+				}else{
 					reject_move(nodesUpdate_move,
 					  rm_pad, add_pad,
-					  new_voltages);
+					  old_voltages);
 					Move_num_rejected++;
-					clog<<"after reject. "<<endl;
 				}
 			}
 			// recompute worst voltage drop
-			recompute_worst_IRdrop(new_voltages);	
-			*/
+			recompute_worst_IRdrop(old_voltages);
 		}
-		if(iter_T ==0){//calculate the start temperature
+		if(iter_T ==1){//calculate the start temperature
 			if(change_cost_total >= 0)
 				T = -(change_cost_total/Movement)
 					/log(P);
@@ -315,6 +298,8 @@ double Circuit::SA(double *rhs){
 
 
 		T *= T_drop;
+
+		clog<<"iter_T, T: "<<iter_T<<" "<<T<<endl;
 		iter_T++;
 	}
 	//printf("the total # if iterations: %d \n", iter);
@@ -326,9 +311,10 @@ double Circuit::SA(double *rhs){
 	locate_maxIRdrop();
 	locate_thIRdrop();
 	double final_cost = SACost();
+	clog<<"final_cost: "<<final_cost<<endl;
 
 	nodesUpdate_move.clear();
-	delete [] new_voltages;
+	delete [] old_voltages;
 	return final_cost;
 }	
 ///////////////////////////////////////////////////////////////////////////////
@@ -569,7 +555,7 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 	cost = SA(b);
 	delete [] b;
-	clog<<"final cost after SA:" <<cost<<endl;
+	//clog<<"final cost after SA:" <<cost<<endl;
 }
 
 // restamp current into rhs for SA computation
@@ -1402,12 +1388,11 @@ void Circuit::pad_set_init(){
 }
 
 void Circuit::one_move(vector<Node*>&nodesUpdate_move,
-	double *rhs, Node *rm_pad, Node *add_pad,  
+	double *rhs, Node *&rm_pad, Node *&add_pad,  
 	size_t &rm_pad_index, size_t iter_move){
 	size_t VDD_num = VDD_set.size();
 	vector<Node*> nbr_pads;
 	size_t nbr_index;
-	Node *ref_node;
 
 	// the nodes updated in each movement 
 	nodesUpdate_move.resize(0);
@@ -1417,7 +1402,6 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	rm_pad = VDD_set[rm_pad_index];	
 	// It is no more X node
 	rm_pad->flag= false;
-	clog<<"rm_pad: "<<*rm_pad<<endl; 
 
 	// find its neiboring pad candidates	
 	form_nbr_pads(rm_pad, nbr_pads);	
@@ -1466,7 +1450,6 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	double eps0=1e-4;
 	double eps1 = 1e-4;
 	size_t LIMIT = 500;
-	double V_ref_new=0;
 	Node *ref_node;
 	ref_node = rm_pad;
 
@@ -1482,6 +1465,7 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	CircularQueue q(MAX_QUEUE_SIZE);
 	double V_improve = 1;
 	double V_ref_old = 0;
+	// only test 1 iteration
 	while(V_improve > eps0 && iter<LIMIT){
 		V_ref_old = ref_node->value;
 		//cout<<"vref old: "<<V_ref_old<<endl;
@@ -1502,8 +1486,7 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 			}
 			//count++;
 			// update node value with neighbors
-			diff = update_node_value(iter, 
-				rm_pad, nd, rhs);
+			diff = update_node_value(iter, nd, rhs);
 			if(diff<1e-4){
 				//cout<<"iter, nd stop: "<<iter<<" "<<*nd<<endl;
 				break;
@@ -1523,13 +1506,12 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 			//*ref_node<<endl;
 		iter++;
 	}
-	cout<<"iter for one rm_pad is: "<<iter<<endl;
-	cout<<"final value: "<<*rm_pad<<endl;
+	//cout<<"iter for one rm_pad is: "<<iter<<endl;
 	delete [] timestamps;	
 }
 
 // rhs is the current vector
-double Circuit::update_node_value(int iter, Node *rm_pad, Node *nd, double *rhs){
+double Circuit::update_node_value(int iter, Node *nd, double *rhs){
 	if(nd->isX()==true) {
 		return 1;
 	}
@@ -1544,27 +1526,31 @@ double Circuit::update_node_value(int iter, Node *rm_pad, Node *nd, double *rhs)
 	Node *nbr, *na, *nb;
 	double sum = 0;
 	
-	V_old = nd->value; 
+	V_old = nd->value;
+	//cout<<"center_node: "<<*nd<<endl; 
 	// update nd->value
 	for(int i=0;i<6;i++){
 		net = nd->nbr[i];
 		if(net ==NULL) continue;
 		G = 1.0/net->value;
-		sum += G;
 		na = net->ab[0]; nb = net->ab[1];
 		if(nd->name == na->name) nbr = nb;
 		else	nbr = na;
 		if(!nbr->is_ground()){
+			sum += G;
 			V_temp += G*nbr->value;
-			//cout<<"nbr value: "<<*nbr<<endl;
+			//cout<<"G, nbr value: "<<G<<" "<<*nbr<<endl;
 		}
 	}
 	V_temp += rhs[nd->rid];
 	V_temp /=sum;
+	
+	//cout<<"current, sum: "<<rhs[nd->rid]<<" "<<sum<<endl;
 	//if(iter ==1 && nd->name==rm_pad->name)
 		nd->value  = V_temp;
 	//else
 		//nd->value = (1-omega)*nd->value + omega*V_temp;
+	//cout<<"new value or nd: "<<*nd<<endl<<endl;
  	double V_improve = fabs(nd->value - V_old);
 
 	//cout<<"v_old, v_new, V_temp, V_improve: "<<V_old<<" "
@@ -1596,15 +1582,21 @@ void Circuit::update_queue(CircularQueue &q, Node *nd, size_t iter){
 // update cost and total_cost
 double Circuit::update_cost(vector<Node*> &nodesUpdate_move, 
 		int iter_T, double &change_cost_total,
-		double *new_voltages){
+		double *old_voltages){
 	double change_cost = 0;
 	Node *nd;
-	cout<<"nodesUpdate_move.size: "<<nodesUpdate_move.size()<<endl;
+	//cout<<"nodesUpdate_move.size: "<<nodesUpdate_move.size()<<endl;
 	for (size_t i=0; i<nodesUpdate_move.size();i++){
 		nd = nodesUpdate_move[i] ;
-		cout<<"i, nd in move: "<<i<<" "<<*nd<<endl;
+		//cout<<"i, nd in move: "<<i<<" "<<*nd<<endl;
+		//cout<<"old_v, new_v: "<<old_voltages[nd->rid]<<" "<<
+			//nd->value<<endl;
+		//cout<<"new_penalty: "<<
+			//penalty(VDD-nd->value,max_IRdrop)<<endl;
+		//cout<<"old_penalty: "<<
+			//penalty(VDD-old_voltages[nd->rid], max_IRdrop)<<endl<<endl;
 		change_cost += penalty(VDD-nd->value, max_IRdrop)-
-			penalty(VDD-new_voltages[nd->rid], max_IRdrop);
+			penalty(VDD-old_voltages[nd->rid], max_IRdrop);
 	}
 	if (iter_T==0){
 		// accept all the movements at the beginning
@@ -1614,20 +1606,20 @@ double Circuit::update_cost(vector<Node*> &nodesUpdate_move,
 }
 
 void Circuit::accept_move(vector<Node*>&nodesUpdate_move, 
-		double *new_voltages, size_t rm_index, 
+		double *old_voltages, size_t rm_index, 
 		Node *add_pad){
 	Node *nd;
 	for (size_t i=0; i<nodesUpdate_move.size();i++){
 		nd = nodesUpdate_move[i] ;
 
-		if (new_voltages[nd->rid] != nd->value) {
+		if (old_voltages[nd->rid] != nd->value) {
 			if (nd->critical==true){
 				// remove the node from critical 
 				// set O(logN)
 				CriticalNodes.erase(nd) ; 
 				nd->critical = false ; 
 			}
-			new_voltages[nd->rid] = nd->value; 
+			old_voltages[nd->rid] = nd->value; 
 			if ((VDD - nd->value) > th_IRdrop) {
 				// insert it into the critical set 
 				// O(logN)
@@ -1645,25 +1637,28 @@ void Circuit::accept_move(vector<Node*>&nodesUpdate_move,
 }
 
 void Circuit::reject_move(vector<Node*>&nodesUpdate_move, 
-	Node *rm_pad, Node *add_pad, double *new_voltages){
+	Node *rm_pad, Node *add_pad, double *old_voltages){
 	Node *nd;
 	for (size_t i=0; i<nodesUpdate_move.size();i++){
 		nd = nodesUpdate_move[i];
-		nd->value = new_voltages[nd->rid];
+		nd->value = old_voltages[nd->rid];
 	}
 	rm_pad->flag = true; // rm_pad isX again
 	add_pad->flag = false; //add_pad is not X again
-	//printf("movement %d rejected because change of cost %f\n",
-	//move, change_cost); 
 }
 
-void Circuit::recompute_worst_IRdrop(double *new_voltages){
+void Circuit::recompute_worst_IRdrop(double *old_voltages){
 	Node *nd;
+	set<Node*, VoltageLessThan>::iterator it;
 	if (!CriticalNodes.empty()) {
-		nd = *CriticalNodes.begin() ; // the first element in criticalNodes will be the node with smallest volt
-		max_IRdrop = new_voltages[nd->rid] ;
-	}
-	else {
+		max_IRdrop=0;
+		for(it = CriticalNodes.begin();it!=
+			CriticalNodes.end();it++){
+			nd = *it ;
+			if((VDD-nd->value)>max_IRdrop)
+				max_IRdrop = VDD-nd->value;
+		}
+	}else {
 		locate_maxIRdrop();
 		locate_thIRdrop();
 		build_criticalNodes();	
