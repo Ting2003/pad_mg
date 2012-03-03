@@ -17,6 +17,7 @@
 
 #include <string>
 #include <vector>
+#include <queue>
 #include <tr1/unordered_map>
 #include <map>
 #include <list>
@@ -110,11 +111,18 @@ public:
 	set<Node*, VoltageLessThan> CriticalNodes;
 	/////////// functions //////////
 	void print_power();
+	double optimize_pad_assign(double *rhs);
 
 	// output the format for matlab, to plot the 
 	// distribution figure;
 	void print_matlab();
 	void pad_set_init();
+
+	// functions for new optimization 
+	// method
+	Node* find_min_IRdrop_pad();
+	Node* find_max_IRdrop_candi();
+	double area_IRdrop(Node *nd);
 
 	//locate the max IR drop numbers
 	void locate_maxIRdrop();
@@ -127,9 +135,12 @@ public:
 	double SA(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
-	double update_node_value(int iter, Node *nd, double *rhs);
+	void update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter);
+	double update_node_value(int iter, Node *&nd, double *rhs);
 	void update_pad_value(Node *rm_pad, Node *add_pad, 
 	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs);
+	void update_pad_value_optimize(Node *rm_pad, Node *add_pad, 
+		int iter_move, double *rhs);
 	void one_move(vector<Node*>&nodesUpdate_move,
 	  double *rhs, Node *&rm_pad, Node *&add_pad, 
 	  size_t &rm_pad_index, size_t iter_move);
@@ -141,7 +152,7 @@ public:
 		Node *add_pad);
 	void reject_move(vector<Node*>&nodesUpdate_move, 
 		Node *rm_pad, Node *add_pad, double *new_voltages);
-	void recompute_worst_IRdrop(double *new_voltages);
+	void recompute_worst_IRdrop();
 	////////////////// end of function for Pad relocation ////
 	
 	cholmod_common c, *cm;

@@ -248,7 +248,7 @@ double Circuit::SA(double *rhs){
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
 	size_t REJECT_LIMIT=500;
-	size_t Movement = 500;
+	size_t Movement = 5000;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
@@ -283,7 +283,7 @@ double Circuit::SA(double *rhs){
 				}
 			}
 			// recompute worst voltage drop
-			recompute_worst_IRdrop(old_voltages);
+			recompute_worst_IRdrop();
 		}
 		if(iter_T ==1){//calculate the start temperature
 			if(change_cost_total >= 0)
@@ -548,13 +548,16 @@ void Circuit::solve(){
 	double cost = 0;
 	cost = SACost();
 	clog<<"initial cost before SA:" <<cost<<endl;
+	
 	double *b;
 	b = new double [nodelist.size()-1];
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
-	cost = SA(b);
-	delete [] b;
+	//cost = SA(b);
+	
+	cost = optimize_pad_assign(b);
+	delete [] b;	
 	//clog<<"final cost after SA:" <<cost<<endl;
 }
 
@@ -1402,6 +1405,7 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	rm_pad = VDD_set[rm_pad_index];	
 	// It is no more X node
 	rm_pad->flag= false;
+	rm_pad->value = 0;
 
 	// find its neiboring pad candidates	
 	form_nbr_pads(rm_pad, nbr_pads);	
@@ -1413,6 +1417,7 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	//clog<<"nbr_index: "<<nbr_index<<endl; 
 	add_pad = nbr_pads[nbr_index];
 	add_pad->flag = true;
+	add_pad->value = VDD;
 	//clog<<"add_pad: "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
@@ -1452,16 +1457,14 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	size_t LIMIT = 500;
 	Node *ref_node;
 	ref_node = rm_pad;
-
-	rm_pad->value=0;
-	add_pad->value=VDD;
-	
+		
 	int *timestamps;
 	timestamps = new int [nodelist.size()-1];
 	for(size_t i=0;i<nodelist.size();i++)
 		timestamps[i]=0;
-
+	
 	size_t MAX_QUEUE_SIZE = nodelist.size()-1;
+	
 	CircularQueue q(MAX_QUEUE_SIZE);
 	double V_improve = 1;
 	double V_ref_old = 0;
@@ -1478,10 +1481,67 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 		double diff = 1;
 		//size_t count = 0;
 		//while(!q.isEmpty() && (V_improve>eps1)){
+		
 		while(q.isEmpty()==false){
 			Node *nd = q.extractFront();
 			if(timestamps[nd->rid]!=iter_move){
 				nodesUpdate_move.push_back(nd);
+				timestamps[nd->rid] = iter_move;
+			}
+			//count++;
+			// update node value with neighbors
+			diff = update_node_value(iter, nd, rhs);
+			//if(diff<1e-4) break;
+			// if there is a change with current nodes'
+			// value, queue its neighbors
+			// update_queue with nd's neighbors
+			//update_queue(q, nd, iter);
+		}
+		//cout<<"update "<<count<<" nodes. "<<endl;
+		V_improve = fabs(V_ref_old - ref_node->value);
+		iter++;
+	}
+	
+	//cout<<"iter for one rm_pad is: "<<iter<<endl;
+	delete [] timestamps;
+}
+
+void Circuit::update_pad_value_optimize(Node *rm_pad, Node *add_pad, 
+	 int iter_move, double *rhs){
+	size_t iter = 1;
+	double eps0=1e-4;
+	double eps1 = 1e-4;
+	size_t LIMIT = 500;
+	Node *ref_node;
+	ref_node = rm_pad;
+
+	rm_pad->value=0;
+	add_pad->value=VDD;
+	
+	int *timestamps;
+	timestamps = new int [nodelist.size()-1];
+	for(size_t i=0;i<nodelist.size();i++)
+		timestamps[i]=0;
+
+	size_t MAX_QUEUE_SIZE = nodelist.size()-1;
+	double V_improve = 1;
+	double V_ref_old = 0;
+	// only test 1 iteration
+	while(V_improve > eps0 && iter<LIMIT){
+		V_ref_old = ref_node->value;
+		//cout<<"vref old: "<<V_ref_old<<endl;
+		queue<Node*> q;
+		//cout<<"reset q here. "<<endl;
+		q.push(rm_pad);
+		q.push(add_pad);
+		rm_pad->flag_visited = iter; 
+		add_pad->flag_visited = iter;
+		double diff = 1;
+		//size_t count = 0;
+		//while(!q.isEmpty() && (V_improve>eps1)){
+		while(q.empty()==false){
+			Node *nd = q.front();
+			if(timestamps[nd->rid]!=iter_move){
 				timestamps[nd->rid] = iter_move;
 			}
 			//count++;
@@ -1494,7 +1554,7 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 			// if there is a change with current nodes'
 			// value, queue its neighbors
 			// update_queue with nd's neighbors
-			update_queue(q, nd, iter);
+			update_queue_optimize(q, nd, iter);
 			//cout<<"qeue is: "<<endl;
 			//cout<<q;
 			//cout<<endl<<endl;	
@@ -1507,11 +1567,12 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 		iter++;
 	}
 	//cout<<"iter for one rm_pad is: "<<iter<<endl;
-	delete [] timestamps;	
+	delete [] timestamps;
 }
 
+
 // rhs is the current vector
-double Circuit::update_node_value(int iter, Node *nd, double *rhs){
+double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
 	if(nd->isX()==true) {
 		return 1;
 	}
@@ -1525,8 +1586,11 @@ double Circuit::update_node_value(int iter, Node *nd, double *rhs){
 	Net *net;
 	Node *nbr, *na, *nb;
 	double sum = 0;
+	net = NULL;
+	nbr = NULL; na = NULL; nb = NULL;
 	
 	V_old = nd->value;
+
 	//cout<<"center_node: "<<*nd<<endl; 
 	// update nd->value
 	for(int i=0;i<6;i++){
@@ -1542,19 +1606,18 @@ double Circuit::update_node_value(int iter, Node *nd, double *rhs){
 			//cout<<"G, nbr value: "<<G<<" "<<*nbr<<endl;
 		}
 	}
+
 	V_temp += rhs[nd->rid];
 	V_temp /=sum;
 	
-	//cout<<"current, sum: "<<rhs[nd->rid]<<" "<<sum<<endl;
 	//if(iter ==1 && nd->name==rm_pad->name)
 		nd->value  = V_temp;
 	//else
 		//nd->value = (1-omega)*nd->value + omega*V_temp;
-	//cout<<"new value or nd: "<<*nd<<endl<<endl;
- 	double V_improve = fabs(nd->value - V_old);
+ 	
+	return 1;
+	double V_improve = fabs(nd->value - V_old);
 
-	//cout<<"v_old, v_new, V_temp, V_improve: "<<V_old<<" "
-		//<<nd->value<<" "<<V_temp<<" "<<V_improve<<endl;
 	return V_improve;
 }
 
@@ -1574,6 +1637,27 @@ void Circuit::update_queue(CircularQueue &q, Node *nd, size_t iter){
 		else	nbr = na;
 		if(!nbr->is_ground()&& nbr->flag_visited != iter){
 			q.insert(nbr);
+			nbr->flag_visited = iter;
+		}
+	}
+}
+
+void Circuit::update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter){
+	Net * net; Node *nbr;
+	Node *na, *nb;
+	//cout<<"update queue:head "<<q.queueHead_<<endl;
+	//cout<<"center nd: "<<*nd<<endl;
+	for(int i=0;i<6;i++){
+		net = nd->nbr[i];
+		if(net==NULL) continue;
+		// find the other node, which is nbr
+		na = net->ab[0];
+		nb = net->ab[1];
+		if(nd->name == na->name)
+			nbr = nb;
+		else	nbr = na;
+		if(!nbr->is_ground()&& nbr->flag_visited != iter){
+			q.push(nbr);
 			nbr->flag_visited = iter;
 		}
 	}
@@ -1647,7 +1731,7 @@ void Circuit::reject_move(vector<Node*>&nodesUpdate_move,
 	add_pad->flag = false; //add_pad is not X again
 }
 
-void Circuit::recompute_worst_IRdrop(double *old_voltages){
+void Circuit::recompute_worst_IRdrop(){
 	Node *nd;
 	set<Node*, VoltageLessThan>::iterator it;
 	if (!CriticalNodes.empty()) {
@@ -1671,6 +1755,104 @@ bool Circuit::acceptProb(double p){
 }
 
 int random_gen(int min, int max){
-    return min + int( ((max-min) +1) * (rand() /(RAND_MAX + 1.0))) ; 
+    return min + int( ((max-min) +1) * (rand() /(RAND_MAX + 1.0))); 
+}
 
+double Circuit::optimize_pad_assign(double *rhs){
+	Node *rm_pad, *add_pad;
+	double cost = 0;
+	size_t Movement = 500;
+	double final_cost = 0;
+	rm_pad = NULL;
+	add_pad = NULL;
+
+	vector<Node *> nodesUpdate_move;
+		
+	for(size_t iter=1; iter<Movement; iter++){	
+		nodesUpdate_move.resize(0);
+		// find pad located in mimum IR drop area
+		rm_pad = find_min_IRdrop_pad();
+		rm_pad->flag = false; // rm_pad is not VDD pad now
+		// find candidate pad located in maximum IR drop area
+		add_pad = find_max_IRdrop_candi();
+		add_pad->flag = true; // add_pad is VDD pad now
+		add_pad->value = VDD;
+		rm_pad->value = 0;
+
+		//cout<<"rm_pad "<<*rm_pad<<endl;
+		//cout<<"add_pad "<<*add_pad<<endl;
+
+		update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
+				iter, rhs);
+
+		VDD_set[rm_pad->rid] = add_pad;
+	}
+	locate_maxIRdrop();
+	locate_thIRdrop();
+	final_cost = SACost();
+	clog<<"final_cost: "<<final_cost<<endl;	
+	nodesUpdate_move.clear();
+	return final_cost;
+}
+
+// loop the VDD pads, to find out one that has minimum 
+// IR drop area
+Node* Circuit::find_min_IRdrop_pad(){
+	Node *nd;
+	double IRdrop;
+	double minIRdrop = 0;
+	Node *min_pad;
+	nd = NULL; min_pad = NULL;
+	// judge by sum of nbr candi and pad IRdrops
+	for(size_t i=0;i<VDD_set.size();i++){
+		nd = VDD_set[i];
+		IRdrop = area_IRdrop(nd);
+		if(i==0){
+			minIRdrop = IRdrop;
+			min_pad = nd;
+		}else if(IRdrop < minIRdrop){
+			minIRdrop = IRdrop;
+			min_pad = nd;	
+		}
+	}
+	return min_pad;
+}
+
+// find area IRdrop around node nd
+double Circuit::area_IRdrop(Node *nd){
+	double sum = 0;
+	Node *nbr, *na, *nb;
+	Net *net;
+	
+	for(int i=0;i<4;i++){
+		net = nd->nbr_pad[i];
+		if(net== NULL) continue;
+
+		na = net->ab[0];
+		nb = net->ab[1];
+		if(na->name == nd->name)
+			nbr = nb;
+		else nbr = na;
+
+		sum += VDD - nbr->value;
+	}
+	return sum;
+}
+
+Node* Circuit::find_max_IRdrop_candi(){
+	Node *nd;
+	double IRdrop;
+	double maxIRdrop = 0;
+	Node *max_pad;
+	nd = NULL; max_pad = NULL;
+	// judge by sum of nbr candi and pad IRdrops
+	for(size_t i=0;i<VDD_candi_set.size();i++){
+		nd = VDD_candi_set[i];
+		IRdrop = VDD - nd->value;
+		if(IRdrop > maxIRdrop){
+			maxIRdrop = IRdrop;
+			max_pad = nd;
+		}	
+	}
+	return max_pad;
 }
