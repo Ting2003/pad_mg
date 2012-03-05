@@ -120,7 +120,7 @@ public:
 
 	// functions for new optimization 
 	// method
-	Node* find_min_IRdrop_pad();
+	Node* find_min_IRdrop_pad(size_t & min_index);
 	Node* find_max_IRdrop_candi();
 	double area_IRdrop(Node *nd);
 

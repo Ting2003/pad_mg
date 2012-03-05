@@ -248,7 +248,7 @@ double Circuit::SA(double *rhs){
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
 	size_t REJECT_LIMIT=500;
-	size_t Movement = 5000;
+	size_t Movement = 2000;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
@@ -554,9 +554,12 @@ void Circuit::solve(){
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
-	//cost = SA(b);
-	
 	cost = optimize_pad_assign(b);
+	clog<<"cost after optimize: "<<cost<<endl;
+	//cost = SA(b);
+	//clog<<"cost after SA. "<<cost<<endl;
+	//cost = optimize_pad_assign(b);	
+	//clog<<"cost after optimize again. "<<cost<<endl;
 	delete [] b;	
 	//clog<<"final cost after SA:" <<cost<<endl;
 }
@@ -1491,11 +1494,11 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 			//count++;
 			// update node value with neighbors
 			diff = update_node_value(iter, nd, rhs);
-			//if(diff<1e-4) break;
+			if(diff<1e-4) break;
 			// if there is a change with current nodes'
 			// value, queue its neighbors
 			// update_queue with nd's neighbors
-			//update_queue(q, nd, iter);
+			update_queue(q, nd, iter);
 		}
 		//cout<<"update "<<count<<" nodes. "<<endl;
 		V_improve = fabs(V_ref_old - ref_node->value);
@@ -1590,7 +1593,7 @@ double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
 	nbr = NULL; na = NULL; nb = NULL;
 	
 	V_old = nd->value;
-
+	
 	//cout<<"center_node: "<<*nd<<endl; 
 	// update nd->value
 	for(int i=0;i<6;i++){
@@ -1609,13 +1612,12 @@ double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
 
 	V_temp += rhs[nd->rid];
 	V_temp /=sum;
-	
+	//cout<<"nd in update_node_value: "<<*nd<<endl;
 	//if(iter ==1 && nd->name==rm_pad->name)
 		nd->value  = V_temp;
 	//else
 		//nd->value = (1-omega)*nd->value + omega*V_temp;
  	
-	return 1;
 	double V_improve = fabs(nd->value - V_old);
 
 	return V_improve;
@@ -1761,31 +1763,33 @@ int random_gen(int min, int max){
 double Circuit::optimize_pad_assign(double *rhs){
 	Node *rm_pad, *add_pad;
 	double cost = 0;
-	size_t Movement = 500;
+	size_t Movement = 10000;
 	double final_cost = 0;
 	rm_pad = NULL;
 	add_pad = NULL;
+	size_t min_index = 0;
 
 	vector<Node *> nodesUpdate_move;
 		
 	for(size_t iter=1; iter<Movement; iter++){	
 		nodesUpdate_move.resize(0);
 		// find pad located in mimum IR drop area
-		rm_pad = find_min_IRdrop_pad();
+		rm_pad = find_min_IRdrop_pad(min_index);
 		rm_pad->flag = false; // rm_pad is not VDD pad now
 		// find candidate pad located in maximum IR drop area
 		add_pad = find_max_IRdrop_candi();
 		add_pad->flag = true; // add_pad is VDD pad now
 		add_pad->value = VDD;
 		rm_pad->value = 0;
-
+		cout<<"iter rm_pad add_pad: "<<iter<<" "<<
+			*rm_pad<<" "<<*add_pad<<endl;
 		//cout<<"rm_pad "<<*rm_pad<<endl;
 		//cout<<"add_pad "<<*add_pad<<endl;
 
 		update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
 				iter, rhs);
 
-		VDD_set[rm_pad->rid] = add_pad;
+		VDD_set[min_index] = add_pad;
 	}
 	locate_maxIRdrop();
 	locate_thIRdrop();
@@ -1797,7 +1801,7 @@ double Circuit::optimize_pad_assign(double *rhs){
 
 // loop the VDD pads, to find out one that has minimum 
 // IR drop area
-Node* Circuit::find_min_IRdrop_pad(){
+Node* Circuit::find_min_IRdrop_pad(size_t & min_index){
 	Node *nd;
 	double IRdrop;
 	double minIRdrop = 0;
@@ -1810,9 +1814,11 @@ Node* Circuit::find_min_IRdrop_pad(){
 		if(i==0){
 			minIRdrop = IRdrop;
 			min_pad = nd;
+			min_index = 0;
 		}else if(IRdrop < minIRdrop){
 			minIRdrop = IRdrop;
-			min_pad = nd;	
+			min_pad = nd;
+			min_index = i;	
 		}
 	}
 	return min_pad;
