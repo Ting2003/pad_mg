@@ -252,10 +252,10 @@ double Circuit::SA(double *rhs){
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
-	while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
+	//while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
 		Move_num_rejected = 0;  
 		//iter_T;
-		for (iter_move=1; iter_move<Movement; iter_move++){
+		for (iter_move=1; iter_move<2;iter_move++){//<Movement; iter_move++){
 			// compute one movement	
 			one_move(nodesUpdate_move, rhs, rm_pad, 
 				add_pad, rm_index, iter_move);
@@ -266,10 +266,10 @@ double Circuit::SA(double *rhs){
 				//change_cost<<endl;
 			//cout<<"iter_move, change_cost: "<<
 				//iter_move<<" "<<change_cost<<endl;
-			if(change_cost<0)
+			//if(change_cost<0)
 				accept_move(nodesUpdate_move, 
 				  old_voltages, rm_index, add_pad);
-			else{
+			/*else{
 				double prob = exp(-change_cost/T);
 				if(acceptProb(prob)==true){
 					accept_move(nodesUpdate_move,
@@ -281,7 +281,7 @@ double Circuit::SA(double *rhs){
 					  old_voltages);
 					Move_num_rejected++;
 				}
-			}
+			}*/
 			// recompute worst voltage drop
 			recompute_worst_IRdrop();
 		}
@@ -301,7 +301,7 @@ double Circuit::SA(double *rhs){
 
 		clog<<"iter_T, T: "<<iter_T<<" "<<T<<endl;
 		iter_T++;
-	}
+	//}
 	//printf("the total # if iterations: %d \n", iter);
 	//printf("the average change of cost is %f \n",  change_cost_total/Movement);
 	//printf("the final temperature is %f \n", Temperature);
@@ -554,10 +554,17 @@ void Circuit::solve(){
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
-	cost = optimize_pad_assign(b);
-	clog<<"cost after optimize: "<<cost<<endl;
-	//cost = SA(b);
-	//clog<<"cost after SA. "<<cost<<endl;
+	//for(int iter = 0;iter <3; iter++){
+		cost = SA(b);
+		//cost = optimize_pad_assign(b);
+		//clog<<"cost after optimize: "<<cost<<endl;
+		// rebuild the voltages net for later stamping
+		//rebuild_voltage_nets();
+		//solve_LU_core();
+		//clog<<"after solve LU. "<<endl;
+		//cost = SA(b);
+		//clog<<"cost after SA. "<<cost<<endl;
+	//}
 	//cost = optimize_pad_assign(b);	
 	//clog<<"cost after optimize again. "<<cost<<endl;
 	delete [] b;	
@@ -969,7 +976,7 @@ void Circuit::stamp_by_set(Matrix & A, double* b){
 		case PAD:
 			break;
 		default:
-			report_exit("Unknwon net type\n");
+			report_exit("Unknown net type\n");
 			break;
 		}
 	}
@@ -1404,8 +1411,9 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	nodesUpdate_move.resize(0);
 
 	//1. randomly pick a Vdd pad to remove
-	rm_pad_index = random_gen(0, VDD_num-1); 
-	rm_pad = VDD_set[rm_pad_index];	
+	rm_pad_index = 8; random_gen(0, VDD_num-1); 
+	rm_pad = VDD_set[rm_pad_index];
+	clog<<"rm_pad: "<<*rm_pad<<endl;
 	// It is no more X node
 	rm_pad->flag= false;
 	rm_pad->value = 0;
@@ -1474,11 +1482,9 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	// only test 1 iteration
 	while(V_improve > eps0 && iter<LIMIT){
 		V_ref_old = ref_node->value;
-		//cout<<"vref old: "<<V_ref_old<<endl;
 		q.reset();
-		//cout<<"reset q here. "<<endl;
 		q.insert(rm_pad);
-		q.insert(add_pad);
+		//q.insert(add_pad);
 		rm_pad->flag_visited = iter; 
 		add_pad->flag_visited = iter;
 		double diff = 1;
@@ -1763,7 +1769,7 @@ int random_gen(int min, int max){
 double Circuit::optimize_pad_assign(double *rhs){
 	Node *rm_pad, *add_pad;
 	double cost = 0;
-	size_t Movement = 10000;
+	size_t Movement = 2000;
 	double final_cost = 0;
 	rm_pad = NULL;
 	add_pad = NULL;
@@ -1781,8 +1787,8 @@ double Circuit::optimize_pad_assign(double *rhs){
 		add_pad->flag = true; // add_pad is VDD pad now
 		add_pad->value = VDD;
 		rm_pad->value = 0;
-		cout<<"iter rm_pad add_pad: "<<iter<<" "<<
-			*rm_pad<<" "<<*add_pad<<endl;
+		//cout<<"iter rm_pad add_pad: "<<iter<<" "<<
+			//*rm_pad<<" "<<*add_pad<<endl;
 		//cout<<"rm_pad "<<*rm_pad<<endl;
 		//cout<<"add_pad "<<*add_pad<<endl;
 
@@ -1811,6 +1817,7 @@ Node* Circuit::find_min_IRdrop_pad(size_t & min_index){
 	for(size_t i=0;i<VDD_set.size();i++){
 		nd = VDD_set[i];
 		IRdrop = area_IRdrop(nd);
+		//cout<<"nd, IRdrop: "<<*nd<<" "<<IRdrop<<endl;
 		if(i==0){
 			minIRdrop = IRdrop;
 			min_pad = nd;
@@ -1829,6 +1836,7 @@ double Circuit::area_IRdrop(Node *nd){
 	double sum = 0;
 	Node *nbr, *na, *nb;
 	Net *net;
+	size_t count = 0;
 	
 	for(int i=0;i<4;i++){
 		net = nd->nbr_pad[i];
@@ -1839,10 +1847,11 @@ double Circuit::area_IRdrop(Node *nd){
 		if(na->name == nd->name)
 			nbr = nb;
 		else nbr = na;
+		count++;
 
 		sum += VDD - nbr->value;
 	}
-	return sum;
+	return sum/count;
 }
 
 Node* Circuit::find_max_IRdrop_candi(){
@@ -1861,4 +1870,13 @@ Node* Circuit::find_max_IRdrop_candi(){
 		}	
 	}
 	return max_pad;
+}
+
+void Circuit::rebuild_voltage_nets(){
+	int type = VOLTAGE;
+	net_set[type].clear();
+	for(size_t i=0;i<VDD_set.size();i++){
+		Net *net = new Net(VOLTAGE, VDD, VDD_set[i], 0);
+		net_set[type].push_back(net);	
+	}
 }

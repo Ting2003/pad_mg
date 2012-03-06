@@ -112,6 +112,7 @@ public:
 	/////////// functions //////////
 	void print_power();
 	double optimize_pad_assign(double *rhs);
+	void rebuild_voltage_nets();
 
 	// output the format for matlab, to plot the 
 	// distribution figure;
