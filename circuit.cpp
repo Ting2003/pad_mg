@@ -554,6 +554,7 @@ void Circuit::solve(){
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
+	//solve_GS(b);
 	//for(int iter = 0;iter <3; iter++){
 		cost = SA(b);
 		//cost = optimize_pad_assign(b);
@@ -1411,7 +1412,7 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	nodesUpdate_move.resize(0);
 
 	//1. randomly pick a Vdd pad to remove
-	rm_pad_index = 8; random_gen(0, VDD_num-1); 
+	rm_pad_index = 18; //random_gen(0, VDD_num-1); 
 	rm_pad = VDD_set[rm_pad_index];
 	clog<<"rm_pad: "<<*rm_pad<<endl;
 	// It is no more X node
@@ -1426,9 +1427,9 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	// random select a valid nbr pad
 	nbr_index = random_gen(0, nbr_pads.size()-1);
 	//clog<<"nbr_index: "<<nbr_index<<endl; 
-	add_pad = nbr_pads[nbr_index];
-	add_pad->flag = true;
-	add_pad->value = VDD;
+	//add_pad = nbr_pads[nbr_index];
+	//add_pad->flag = true;
+	//add_pad->value = VDD;
 	//clog<<"add_pad: "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
@@ -1463,9 +1464,8 @@ void Circuit::form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads){
 void Circuit::update_pad_value(Node *rm_pad, Node *add_pad, 
 	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs){
 	size_t iter = 1;
-	double eps0=1e-4;
-	double eps1 = 1e-4;
-	size_t LIMIT = 500;
+	// eps0 need to be very small
+	double eps0=1e-10;
 	Node *ref_node;
 	ref_node = rm_pad;
 		
@@ -1479,35 +1479,38 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	CircularQueue q(MAX_QUEUE_SIZE);
 	double V_improve = 1;
 	double V_ref_old = 0;
+	double max_diff = 1;
+	double diff = 0;
+	Node *max_nd;
 	// only test 1 iteration
-	while(V_improve > eps0 && iter<LIMIT){
-		V_ref_old = ref_node->value;
+	while(max_diff > eps0){// && iter<LIMIT){
+		//V_ref_old = ref_node->value;
 		q.reset();
 		q.insert(rm_pad);
 		//q.insert(add_pad);
 		rm_pad->flag_visited = iter; 
-		add_pad->flag_visited = iter;
-		double diff = 1;
-		//size_t count = 0;
-		//while(!q.isEmpty() && (V_improve>eps1)){
-		
+		//add_pad->flag_visited = iter;
+		max_diff = 0;
 		while(q.isEmpty()==false){
 			Node *nd = q.extractFront();
 			if(timestamps[nd->rid]!=iter_move){
 				nodesUpdate_move.push_back(nd);
 				timestamps[nd->rid] = iter_move;
 			}
-			//count++;
 			// update node value with neighbors
-			diff = update_node_value(iter, nd, rhs);
-			if(diff<1e-4) break;
+			diff = update_node_value(iter, rm_pad, nd, rhs);
+			if(abs(diff)>max_diff) {
+				max_diff =abs(diff);
+				max_nd = nd;
+			}
 			// if there is a change with current nodes'
 			// value, queue its neighbors
 			// update_queue with nd's neighbors
-			update_queue(q, nd, iter);
+			if(diff>1e-10)
+				update_queue(q, nd, iter);
 		}
-		//cout<<"update "<<count<<" nodes. "<<endl;
-		V_improve = fabs(V_ref_old - ref_node->value);
+		//clog<<"iter, max_diff, nd: "<<iter<<" "<<max_diff<<
+			//" "<<*max_nd<<endl;
 		iter++;
 	}
 	
@@ -1555,7 +1558,7 @@ void Circuit::update_pad_value_optimize(Node *rm_pad, Node *add_pad,
 			}
 			//count++;
 			// update node value with neighbors
-			diff = update_node_value(iter, nd, rhs);
+			diff = update_node_value(iter, rm_pad, nd, rhs);
 			if(diff<1e-4){
 				//cout<<"iter, nd stop: "<<iter<<" "<<*nd<<endl;
 				break;
@@ -1581,14 +1584,12 @@ void Circuit::update_pad_value_optimize(Node *rm_pad, Node *add_pad,
 
 
 // rhs is the current vector
-double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
+double Circuit::update_node_value(int iter, Node *&rm_pad, Node *&nd, double *rhs){
 	if(nd->isX()==true) {
-		return 1;
+		return 0;
 	}
-	//cout<<"update node value of: "<<*nd<<endl;
-	double h = 0.3;//0.06;
+	double h = 0.06;
 	double omega = 2-h;
-	//printf("the omega and h: %3.10lf %3.10lf\n",omega,h);
 	double V_old=0;
 	double V_temp = 0;
 	double G = 0;
@@ -1597,10 +1598,9 @@ double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
 	double sum = 0;
 	net = NULL;
 	nbr = NULL; na = NULL; nb = NULL;
-	
+
 	V_old = nd->value;
 	
-	//cout<<"center_node: "<<*nd<<endl; 
 	// update nd->value
 	for(int i=0;i<6;i++){
 		net = nd->nbr[i];
@@ -1612,17 +1612,15 @@ double Circuit::update_node_value(int iter, Node *&nd, double *rhs){
 		if(!nbr->is_ground()){
 			sum += G;
 			V_temp += G*nbr->value;
-			//cout<<"G, nbr value: "<<G<<" "<<*nbr<<endl;
 		}
 	}
 
 	V_temp += rhs[nd->rid];
 	V_temp /=sum;
-	//cout<<"nd in update_node_value: "<<*nd<<endl;
-	//if(iter ==1 && nd->name==rm_pad->name)
+	if(iter ==1 && nd->name==rm_pad->name)
 		nd->value  = V_temp;
-	//else
-		//nd->value = (1-omega)*nd->value + omega*V_temp;
+	else
+		nd->value = (1-omega)*nd->value + omega*V_temp;
  	
 	double V_improve = fabs(nd->value - V_old);
 
@@ -1777,15 +1775,15 @@ double Circuit::optimize_pad_assign(double *rhs){
 
 	vector<Node *> nodesUpdate_move;
 		
-	for(size_t iter=1; iter<Movement; iter++){	
+	for(size_t iter=1; iter<2;iter++){//Movement; iter++){	
 		nodesUpdate_move.resize(0);
 		// find pad located in mimum IR drop area
 		rm_pad = find_min_IRdrop_pad(min_index);
 		rm_pad->flag = false; // rm_pad is not VDD pad now
 		// find candidate pad located in maximum IR drop area
 		add_pad = find_max_IRdrop_candi();
-		add_pad->flag = true; // add_pad is VDD pad now
-		add_pad->value = VDD;
+		//add_pad->flag = true; // add_pad is VDD pad now
+		//add_pad->value = VDD;
 		rm_pad->value = 0;
 		//cout<<"iter rm_pad add_pad: "<<iter<<" "<<
 			//*rm_pad<<" "<<*add_pad<<endl;
@@ -1879,4 +1877,60 @@ void Circuit::rebuild_voltage_nets(){
 		Net *net = new Net(VOLTAGE, VDD, VDD_set[i], 0);
 		net_set[type].push_back(net);	
 	}
+}
+
+void Circuit::solve_GS(double *rhs){
+	double max_diff = 1;
+	int iter = 0;
+	Node *max_nd;
+	//clog<<"nodelist.size: "<<nodelist.size()-1<<endl;
+	while(max_diff >1e-8){// && iter < 500){
+		max_diff = 0;
+		for(size_t i=0;i<nodelist.size()-1;i++){
+			Node *nd = nodelist[i];
+			
+			if(nd->isX()==true) continue;
+			double V_old=0;
+			double V_temp = 0;
+			double G = 0;
+			Net *net;
+			Node *nbr, *na, *nb;
+			double sum = 0;
+			net = NULL;
+			nbr = NULL; na = NULL; nb = NULL;
+
+			V_old = nd->value;
+
+			// update nd->value
+			for(int i=0;i<6;i++){
+				net = nd->nbr[i];
+				if(net ==NULL) continue;
+				G = 1.0/net->value;
+				na = net->ab[0]; nb = net->ab[1];
+				if(nd->name == na->name) nbr = nb;
+				else	nbr = na;
+				if(!nbr->is_ground()){
+					sum += G;
+					V_temp += G*nbr->value;
+				}
+			}
+
+			V_temp += rhs[nd->rid];
+			V_temp /=sum;
+				nd->value = V_temp;
+
+			double diff = fabs(nd->value - V_old);
+			if(diff > max_diff) {
+				max_diff = diff;
+				max_nd = nd;
+			}
+
+			//cout<<"nd, v_old, v_temp, diff: "<<nd->name<<" "<<V_old<<" "<<V_temp<<" "<<diff<<endl;
+		}
+		//cout<<"iter, max_diff: "<<iter<<" "<<max_diff<<endl;
+		//cout<<"update "<<count<<" nodes. "<<endl;
+		//V_improve = fabs(V_ref_old - ref_node->value);
+		iter++;
+	}
+
 }

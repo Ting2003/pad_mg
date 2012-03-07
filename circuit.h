@@ -133,11 +133,12 @@ public:
 	bool acceptProb(double p);
 	double penalty(double v, double vworst);
 	void stamp_rhs_SA(double* b);
+	void solve_GS(double *b);
 	double SA(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
 	void update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter);
-	double update_node_value(int iter, Node *&nd, double *rhs);
+	double update_node_value(int iter, Node *&rm_pad, Node *&nd, double *rhs);
 	void update_pad_value(Node *rm_pad, Node *add_pad, 
 	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs);
 	void update_pad_value_optimize(Node *rm_pad, Node *add_pad, 
