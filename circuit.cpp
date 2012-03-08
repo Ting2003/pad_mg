@@ -247,16 +247,18 @@ double Circuit::SA(double *rhs){
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
-	size_t REJECT_LIMIT=500;
-	size_t Movement = 2000;
+	size_t REJECT_LIMIT=10;
+	size_t Movement = 30;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
-	//while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
+	while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
 		Move_num_rejected = 0;  
+		//clog<<"entering T. "<<endl;
 		//iter_T;
-		for (iter_move=1; iter_move<2;iter_move++){//<Movement; iter_move++){
-			// compute one movement	
+		for (iter_move=1; iter_move<Movement; iter_move++){
+			// compute one movement
+			//clog<<"entering one move. "<<endl;	
 			one_move(nodesUpdate_move, rhs, rm_pad, 
 				add_pad, rm_index, iter_move);
 			double change_cost = update_cost(
@@ -266,10 +268,10 @@ double Circuit::SA(double *rhs){
 				//change_cost<<endl;
 			//cout<<"iter_move, change_cost: "<<
 				//iter_move<<" "<<change_cost<<endl;
-			//if(change_cost<0)
+			if(change_cost<0)
 				accept_move(nodesUpdate_move, 
 				  old_voltages, rm_index, add_pad);
-			/*else{
+			else{
 				double prob = exp(-change_cost/T);
 				if(acceptProb(prob)==true){
 					accept_move(nodesUpdate_move,
@@ -281,7 +283,7 @@ double Circuit::SA(double *rhs){
 					  old_voltages);
 					Move_num_rejected++;
 				}
-			}*/
+			}
 			// recompute worst voltage drop
 			recompute_worst_IRdrop();
 		}
@@ -301,7 +303,7 @@ double Circuit::SA(double *rhs){
 
 		clog<<"iter_T, T: "<<iter_T<<" "<<T<<endl;
 		iter_T++;
-	//}
+	}
 	//printf("the total # if iterations: %d \n", iter);
 	//printf("the average change of cost is %f \n",  change_cost_total/Movement);
 	//printf("the final temperature is %f \n", Temperature);
@@ -556,12 +558,12 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 	//solve_GS(b);
 	//for(int iter = 0;iter <3; iter++){
-		cost = SA(b);
-		//cost = optimize_pad_assign(b);
+		//cost = SA(b);
+		cost = optimize_pad_assign(b);
 		//clog<<"cost after optimize: "<<cost<<endl;
 		// rebuild the voltages net for later stamping
-		//rebuild_voltage_nets();
-		//solve_LU_core();
+		rebuild_voltage_nets();
+		solve_LU_core();
 		//clog<<"after solve LU. "<<endl;
 		//cost = SA(b);
 		//clog<<"cost after SA. "<<cost<<endl;
@@ -1412,9 +1414,9 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	nodesUpdate_move.resize(0);
 
 	//1. randomly pick a Vdd pad to remove
-	rm_pad_index = 18; //random_gen(0, VDD_num-1); 
+	rm_pad_index = random_gen(0, VDD_num-1); 
 	rm_pad = VDD_set[rm_pad_index];
-	clog<<"rm_pad: "<<*rm_pad<<endl;
+	//clog<<"rm_pad: "<<*rm_pad<<endl;
 	// It is no more X node
 	rm_pad->flag= false;
 	rm_pad->value = 0;
@@ -1427,9 +1429,9 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	// random select a valid nbr pad
 	nbr_index = random_gen(0, nbr_pads.size()-1);
 	//clog<<"nbr_index: "<<nbr_index<<endl; 
-	//add_pad = nbr_pads[nbr_index];
-	//add_pad->flag = true;
-	//add_pad->value = VDD;
+	add_pad = nbr_pads[nbr_index];
+	add_pad->flag = true;
+	add_pad->value = VDD;
 	//clog<<"add_pad: "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
@@ -1487,9 +1489,9 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 		//V_ref_old = ref_node->value;
 		q.reset();
 		q.insert(rm_pad);
-		//q.insert(add_pad);
+		q.insert(add_pad);
 		rm_pad->flag_visited = iter; 
-		//add_pad->flag_visited = iter;
+		add_pad->flag_visited = iter;
 		max_diff = 0;
 		while(q.isEmpty()==false){
 			Node *nd = q.extractFront();
@@ -1767,7 +1769,7 @@ int random_gen(int min, int max){
 double Circuit::optimize_pad_assign(double *rhs){
 	Node *rm_pad, *add_pad;
 	double cost = 0;
-	size_t Movement = 2000;
+	size_t Movement = 20;
 	double final_cost = 0;
 	rm_pad = NULL;
 	add_pad = NULL;
@@ -1775,15 +1777,15 @@ double Circuit::optimize_pad_assign(double *rhs){
 
 	vector<Node *> nodesUpdate_move;
 		
-	for(size_t iter=1; iter<2;iter++){//Movement; iter++){	
+	for(size_t iter=1; iter<Movement; iter++){	
 		nodesUpdate_move.resize(0);
 		// find pad located in mimum IR drop area
 		rm_pad = find_min_IRdrop_pad(min_index);
 		rm_pad->flag = false; // rm_pad is not VDD pad now
 		// find candidate pad located in maximum IR drop area
 		add_pad = find_max_IRdrop_candi();
-		//add_pad->flag = true; // add_pad is VDD pad now
-		//add_pad->value = VDD;
+		add_pad->flag = true; // add_pad is VDD pad now
+		add_pad->value = VDD;
 		rm_pad->value = 0;
 		//cout<<"iter rm_pad add_pad: "<<iter<<" "<<
 			//*rm_pad<<" "<<*add_pad<<endl;
