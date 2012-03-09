@@ -112,6 +112,8 @@ public:
 	/////////// functions //////////
 	void print_power();
 	double optimize_pad_assign(double *rhs);
+	double optimize_pad_assign_new(double *rhs);
+	void clear_candi_visit();
 	void rebuild_voltage_nets();
 
 	// output the format for matlab, to plot the 
@@ -135,6 +137,7 @@ public:
 	void stamp_rhs_SA(double* b);
 	void solve_GS(double *b);
 	double SA(double *rhs);
+	double SA_modified(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
 	void update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter);
@@ -146,9 +149,13 @@ public:
 	void one_move(vector<Node*>&nodesUpdate_move,
 	  double *rhs, Node *&rm_pad, Node *&add_pad, 
 	  size_t &rm_pad_index, size_t iter_move);
+	void one_move_modified(vector<Node*>&nodesUpdate_move,
+	  double *rhs, Node *&rm_pad, Node *&add_pad,  
+	  size_t &rm_pad_index, size_t iter_move);
 	double update_cost(vector<Node*> &nodesUpdate_move, 
 		int iter_T, double &change_cost_total,
 		double *new_voltages);
+	double update_cost_modified(vector<Node*> &nodesUpdate_move, double *old_voltages);
 	void accept_move(vector<Node*>&nodesUpdate_move, 
 		double *new_voltages, size_t rm_index,
 		Node *add_pad);
