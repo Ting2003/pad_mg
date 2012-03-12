@@ -199,6 +199,7 @@ void Circuit::locate_thIRdrop(){
 }
 
 void Circuit::build_criticalNodes(){
+	CriticalNodes.clear();
 	size_t N = nodelist.size()-1;
 	double IRdrop;
 	for(size_t i=0;i<N;i++){
@@ -207,6 +208,7 @@ void Circuit::build_criticalNodes(){
 			CriticalNodes.insert(nodelist[i]);
 			nodelist[i]->critical = true;
 		}
+		else nodelist[i]->critical = false;
 	}
 }
 
@@ -247,8 +249,8 @@ double Circuit::SA(double *rhs){
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
-	size_t REJECT_LIMIT=10;
-	size_t Movement = 30;
+	size_t REJECT_LIMIT=100;
+	size_t Movement = 300;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
@@ -328,47 +330,83 @@ double Circuit::SA_modified(double *rhs){
 	rm_pad = NULL;
 	add_pad = NULL;	
 
-	size_t rm_pad_index = 0;
 	size_t Movement = 10;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1;
-
+	bool flag = false;
+	
+	locate_maxIRdrop();
+	locate_thIRdrop();
+	build_criticalNodes();
+	double cost = 0;
+	cost = SACost();
+	//cout<<"cost before SA_modified: "<<cost<<endl;
 	for(size_t i = 0; i<VDD_set.size();i++){
+		//clog<<"i, node: "<<i<<" "<<*VDD_set[i]<<endl;
 		// pick up one rm_pad
-		if(VDD_set[i]->flag_visited ==0){
+		//if(VDD_set[i]->flag_visited >=1) continue;
+		if(~(VDD_set[i]->flag_visited >=1)){
 			rm_pad = VDD_set[i];
 			rm_pad->flag = false;
 			rm_pad->value = 0;
-			rm_pad_index = i;
+			rm_index = i;
+			clog<<endl<<"rm_pad "<<*rm_pad<<endl;
 		}
-
-		//clog<<"before starting T iteration."<<endl;
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<Movement; iter_move++){
-			if(Move_num_rejected / Movement > 0.8)
+			rm_pad = VDD_set[i];
+			rm_pad->flag = false;
+			rm_pad->value = 0;
+			//clog<<"rm_pad "<<*rm_pad<<endl;
+
+			//clog<<"iter_move: "<<iter_move<<endl;
+			if(1.0*Move_num_rejected / Movement >= 0.5){
+				flag = true;
 				break;
+			}
+			
 			// compute one movement
 			one_move_modified(nodesUpdate_move, rhs, 
 			  rm_pad, add_pad, rm_index, iter_move);
+			//clog<<"one move modified. "<<endl;
 			double change_cost = update_cost_modified
 			  (nodesUpdate_move, old_voltages);
-			if(change_cost<0)
-				accept_move(nodesUpdate_move, 
-				  old_voltages, rm_index, add_pad);
+			//cout<<"move, change_cost: "<<iter_move<<" "<<change_cost<<endl;
+			if(change_cost<0){
+
+				//cout<<"rm_pad: "<<*rm_pad<<endl;
+				VDD_set[rm_index]=add_pad;
+				for(size_t k=0;k<N;k++){
+					old_voltages[k] = nodelist[k]->value;
+				}
+				//accept_move(nodesUpdate_move, 
+				  //old_voltages, rm_index, add_pad);
+				locate_maxIRdrop();
+				locate_thIRdrop();
+				double final_cost = SACost();
+				//cout<<"rm_index, new VDD: "<<rm_index<<" "<<*VDD_set[rm_index]<<endl;
+				//cout<<"add_pad, change_cost, cost:  "<<*add_pad<<" "<<change_cost<<" "<<final_cost<<endl;
+				//clog<<"add_pad: "<<*add_pad<<endl;
+			}
 			else{
+				//clog<<"reject move: "<<endl;
 				reject_move(nodesUpdate_move,
 				  rm_pad, add_pad, old_voltages);
 					Move_num_rejected++;
-				}
 			}
-			// recompute worst voltage drop
-			recompute_worst_IRdrop();
 		}
 
-		locate_maxIRdrop();
-		locate_thIRdrop();
-		double final_cost = SACost();
-		clog<<"final_cost: "<<final_cost<<endl;
+		// recompute worst voltage drop
+		recompute_worst_IRdrop();
+		if(flag == true){
+			continue;
+		}
+	}
+
+	locate_maxIRdrop();
+	locate_thIRdrop();
+	double final_cost = SACost();
+	clog<<"final_cost: "<<final_cost<<endl;
 
 	nodesUpdate_move.clear();
 	delete [] old_voltages;
@@ -601,10 +639,9 @@ void Circuit::solve(){
 	locate_maxIRdrop();
 	locate_thIRdrop();
 	// build initial critical nodes list
-	build_criticalNodes();
+	//build_criticalNodes();
 	double cost = 0;
 	cost = SACost();
-	clog<<"initial cost before SA:" <<cost<<endl;
 	
 	double *b;
 	b = new double [nodelist.size()-1];
@@ -613,15 +650,20 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 	//optimize_pad_assign(b);
 	//while(1){
-	//for(int iter = 0;iter <3; iter++){
+	for(int iter = 0;iter <1; iter++){
+		clog<<"cost before a new iteration. "<<cost<<endl;
 		cost = optimize_pad_assign_new(b);
-		//clog<<"cost after optimize: "<<cost<<endl;
-		//cost = SA_modified(b);
+		clog<<"cost after optimize: "<<cost<<endl;
+		//if(iter ==0)
+		cost = SA_modified(b);
+		//for(size_t i=0;i<VDD_set.size();i++)
+			//cout<<"i, VDD_pad: "<<i<<" "<<*VDD_set[i]<<endl;
 		//cost = SA(b);
 		//clog<<"cost after SA. "<<cost<<endl;
 		// if cost keeps dropping, continue
 		// else break the loop
-	//}
+		clog<<"cost after first iter. "<<cost<<endl;
+	}
 	delete [] b;	
 }
 
@@ -1503,15 +1545,12 @@ void Circuit::one_move_modified(vector<Node*>&nodesUpdate_move,
 	// find its neiboring pad candidates	
 	form_nbr_pads(rm_pad, nbr_pads);	
 	if(nbr_pads.size()==0) return;
-	//clog<<"nbr_pads.size: "<<nbr_pads.size()<<endl;
 	
 	// random select a valid nbr pad
 	nbr_index = random_gen(0, nbr_pads.size()-1);
-	//clog<<"nbr_index: "<<nbr_index<<endl; 
 	add_pad = nbr_pads[nbr_index];
 	add_pad->flag = true;
 	add_pad->value = VDD;
-	//clog<<"add_pad: "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
 	update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
@@ -1782,13 +1821,13 @@ double Circuit::update_cost_modified(vector<Node*> &nodesUpdate_move,
 	return change_cost;
 }
 
-
 void Circuit::accept_move(vector<Node*>&nodesUpdate_move, 
 		double *old_voltages, size_t rm_index, 
 		Node *add_pad){
 	Node *nd;
-	for (size_t i=0; i<nodesUpdate_move.size();i++){
-		nd = nodesUpdate_move[i] ;
+	size_t size = nodesUpdate_move.size()-1;
+	for (size_t i=0; i<=size;i++){
+		nd = nodesUpdate_move[i];
 
 		if (old_voltages[nd->rid] != nd->value) {
 			if (nd->critical==true){
@@ -1805,13 +1844,9 @@ void Circuit::accept_move(vector<Node*>&nodesUpdate_move,
 				nd->critical = true ;
 			}
 		}
-
 	}
 	//keep the change of Vdd
-	VDD_set[rm_index]=add_pad;
-	   
-        //printf("movement %d accepted because change of cost 
-        //%f\n", move, change_cost);
+	VDD_set[rm_index]=add_pad;  
 }
 
 void Circuit::reject_move(vector<Node*>&nodesUpdate_move, 
@@ -1886,7 +1921,7 @@ double Circuit::optimize_pad_assign(double *rhs){
 	locate_maxIRdrop();
 	locate_thIRdrop();
 	final_cost = SACost();
-	clog<<"final_cost: "<<final_cost<<endl;	
+	//clog<<"final_cost: "<<final_cost<<endl;	
 	nodesUpdate_move.clear();
 	return final_cost;
 }
@@ -1921,7 +1956,7 @@ double Circuit::optimize_pad_assign_new(double *rhs){
 		   	add_pad->name == prev_rm_pad->name))
 			// for untouched pads flag_visited != 0
 			break;
-		
+		clog<<"rm_pad, add_pad: "<<*rm_pad<<" "<<*add_pad<<endl;	
 		prev_rm_pad = rm_pad;
 		prev_add_pad = add_pad;
 		
@@ -1942,7 +1977,7 @@ double Circuit::optimize_pad_assign_new(double *rhs){
 	locate_maxIRdrop();
 	locate_thIRdrop();
 	final_cost = SACost();
-	clog<<"final_cost after initial reallocation: "<<final_cost<<endl;	
+	//clog<<"final_cost after initial reallocation: "<<final_cost<<endl;	
 	nodesUpdate_move.clear();
 
 	return final_cost;
