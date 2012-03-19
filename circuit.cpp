@@ -249,12 +249,12 @@ double Circuit::SA(double *rhs){
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
-	size_t REJECT_LIMIT=100;
-	size_t Movement = 300;
+	size_t REJECT_LIMIT=60;
+	size_t Movement = 10;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	//clog<<"before starting T iteration."<<endl;
-	while (T > Frozen_T && Move_num_rejected<REJECT_LIMIT){
+	while (T > Frozen_T){
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<Movement; iter_move++){
 			// compute one movement
@@ -296,7 +296,8 @@ double Circuit::SA(double *rhs){
 
 		T *= T_drop;
 
-		clog<<"iter_T, T: "<<iter_T<<" "<<T<<endl;
+		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		if(1.0*Move_num_rejected / Movement >= 0.99) break;
 		iter_T++;
 	}
 	//printf("the total # if iterations: %d \n", iter);
@@ -599,7 +600,7 @@ void Circuit::stamp_block_matrix(){
 		}
 	}
 	t2 = clock();
-	clog<<"decomp time for CK is: "<<1.0*(t2-t1) / CLOCKS_PER_SEC<<endl;
+	//clog<<"decomp time for CK is: "<<1.0*(t2-t1) / CLOCKS_PER_SEC<<endl;
 	//clog<<"peak memory for cholmod: "<<peak_mem / 1e9<<" e+06"<<endl;
 	//clog<<"CK_mem is: "<<CK_mem / 1e6 <<" G"<<endl;
 }
@@ -642,28 +643,47 @@ void Circuit::solve(){
 	//build_criticalNodes();
 	double cost = 0;
 	cost = SACost();
-	
+	clog<<"cost is: "<<cost<<endl;
+
 	double *b;
 	b = new double [nodelist.size()-1];
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
+
+	// use ransac method to get a better init pad assignment
+	RANSAC_init();
+	
+	double best_IRdrop = VDD;	
+	for(size_t i=0;i<1;i++){
+		cost = optimize_pad_assign_new(b);
+		
+		locate_maxIRdrop();
+		clog<<endl<<" max: "<<max_IRdrop<<endl;
+		cost = SA(b);
+		
+		locate_maxIRdrop();
+		if(abs(max_IRdrop) < (best_IRdrop))
+			best_IRdrop = max_IRdrop;
+		clog<<"iter, max_IRdrop: "<<i<<" "<<max_IRdrop<<endl;		
+	
+	}
+	//rebuild_voltage_nets();
+	//solve_LU_core();
 	//optimize_pad_assign(b);
 	//while(1){
-	for(int iter = 0;iter <1; iter++){
+	/*for(int iter = 0;iter <1; iter++){
 		clog<<"cost before a new iteration. "<<cost<<endl;
-		cost = optimize_pad_assign_new(b);
 		clog<<"cost after optimize: "<<cost<<endl;
 		//if(iter ==0)
 		cost = SA_modified(b);
 		//for(size_t i=0;i<VDD_set.size();i++)
 			//cout<<"i, VDD_pad: "<<i<<" "<<*VDD_set[i]<<endl;
-		//cost = SA(b);
 		//clog<<"cost after SA. "<<cost<<endl;
 		// if cost keeps dropping, continue
 		// else break the loop
 		clog<<"cost after first iter. "<<cost<<endl;
-	}
+	}*/
 	delete [] b;	
 }
 
@@ -1064,8 +1084,9 @@ void Circuit::stamp_by_set(Matrix & A, double* b){
 			for(it=ns.begin();it!=ns.end();++it){
 				if( fzero((*it)->value)  && 
 				    !(*it)->ab[0]->is_ground() &&
-				    !(*it)->ab[1]->is_ground() )
+				    !(*it)->ab[1]->is_ground() ){
 					continue; // it's a 0v via
+				}
 				stamp_VDD(A, b, (*it));
 			}
 			break;
@@ -2055,7 +2076,8 @@ void Circuit::rebuild_voltage_nets(){
 	int type = VOLTAGE;
 	net_set[type].clear();
 	for(size_t i=0;i<VDD_set.size();i++){
-		Net *net = new Net(VOLTAGE, VDD, VDD_set[i], 0);
+		Net *net = new Net(VOLTAGE, VDD, VDD_set[i], 
+			nodelist[nodelist.size()-1]);		
 		net_set[type].push_back(net);	
 	}
 }
@@ -2063,6 +2085,7 @@ void Circuit::rebuild_voltage_nets(){
 void Circuit::solve_GS(double *rhs){
 	double max_diff = 1;
 	int iter = 0;
+	double omega= 2-0.06;
 	Node *max_nd;
 	//clog<<"nodelist.size: "<<nodelist.size()-1<<endl;
 	while(max_diff >1e-8){// && iter < 500){
@@ -2098,7 +2121,7 @@ void Circuit::solve_GS(double *rhs){
 
 			V_temp += rhs[nd->rid];
 			V_temp /=sum;
-				nd->value = V_temp;
+				nd->value = (1-omega)*nd->value + omega * V_temp;
 
 			double diff = fabs(nd->value - V_old);
 			if(diff > max_diff) {
@@ -2122,4 +2145,73 @@ void Circuit::clear_candi_visit(){
 		nd = VDD_candi_set[i];
 		nd->flag_visited = 0;
 	}
+}
+
+// produce one set of VDD Pad 
+void Circuit::random_init_iter(){
+	//for(size_t i=0;i<VDD_candi_set.size();i++)
+		//if(VDD_candi_set[i]->isX()==true)
+			//clog<<"VDD_candi_set. flag: "<<*VDD_candi_set[i]<<endl;
+	// clear all X node
+	for(size_t i=0;i<VDD_set.size();i++){
+		VDD_set[i]->flag = false;
+	}
+	size_t VDD_num = VDD_set.size();
+	//VDD_set.clear();
+	size_t index=0;
+	for(size_t i=0;i<VDD_num;i++){
+		while(1){
+			index = random_gen(0,VDD_candi_set.size()-1);
+			//clog<<"index, candi: "<<index<<" "<<VDD_candi_set[index]->isX()<<endl;
+			if(VDD_candi_set[index]->isX()!= true){
+				//clog<<"push this node. "<<*VDD_candi_set[index]<<endl;
+				//VDD_set.push_back(VDD_candi_set[index]);
+				VDD_set[i]=VDD_candi_set[index];
+				VDD_set[i]->flag = true;
+				VDD_set[i]->value = VDD;
+				//VDD_candi_set[index]->flag= true;
+				break;
+			}	
+		}
+	}
+
+}
+
+void Circuit::RANSAC_init(){
+	vector<Node*> best_VDD_set;
+	best_VDD_set = VDD_set;	
+	double best_maxIRdrop = max_IRdrop;
+	// randomly select p patterns for init distribution
+	for(size_t i=0;i<100;i++){
+		// produce one pad assignment
+		random_init_iter();
+
+		//solve_GS(b);
+		// then solve Lu after rebuild matrix
+		rebuild_voltage_nets();
+		solve_LU_core();
+		locate_maxIRdrop();
+		double current_maxIRdrop = max_IRdrop;
+		if(abs(current_maxIRdrop)<abs(best_maxIRdrop)){
+			best_VDD_set = VDD_set;
+			// set the VDD_set and VDD_candi_set to be current
+			clog<<"accept, current, best: "<<current_maxIRdrop<<" "<<best_maxIRdrop<<endl;
+
+			best_maxIRdrop = current_maxIRdrop;
+		}
+	}
+
+	// clear all X node
+	for(size_t i=0;i<VDD_set.size();i++){
+		VDD_set[i]->flag = false;
+	}
+	VDD_set = best_VDD_set;
+	for(size_t i=0;i<VDD_set.size();i++){
+		//clog<<"VDD best, i, node' "<<i<<" "<<*VDD_set[i]<<endl;
+		VDD_set[i]->flag = true;
+		VDD_set[i]->value = VDD;
+	}
+	rebuild_voltage_nets();
+	solve_LU_core();
+	best_VDD_set.clear();
 }

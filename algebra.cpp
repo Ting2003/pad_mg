@@ -107,12 +107,12 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	t1 = clock();
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
 	t2 = clock();
-	clog<<"decomp time for CK is: "<<1.0*(t2-t1) / CLOCKS_PER_SEC<<endl;
+	//clog<<"decomp time for CK is: "<<1.0*(t2-t1) / CLOCKS_PER_SEC<<endl;
 	// then solve
 	t1 = clock();
 	x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	t2 = clock();
-	clog<<"solve time is: "<<1.0*(t2-t1)/ CLOCKS_PER_SEC<<endl;
+	//clog<<"solve time is: "<<1.0*(t2-t1)/ CLOCKS_PER_SEC<<endl;
 	//cholmod_print_dense(x, "x", cm);
 	//cholmod_print_dense(b, "b", cm);
 	//cholmod_print_factor(L, "L", cm);

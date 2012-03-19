@@ -130,6 +130,8 @@ public:
 	//locate the max IR drop numbers
 	void locate_maxIRdrop();
 	void locate_thIRdrop();
+	void random_init_iter();
+	void RANSAC_init();
 	void build_criticalNodes();
 	double SACost();
 	bool acceptProb(double p);
