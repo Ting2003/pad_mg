@@ -652,9 +652,10 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 
 	// use ransac method to get a better init pad assignment
-	RANSAC_init();
+	//RANSAC_init();
 	// optimized method plus SA
-	opti_SA(b);
+	//opti_SA(b);
+	Mean_shift_move();
 	delete [] b;	
 }
 
@@ -2188,8 +2189,9 @@ void Circuit::RANSAC_init(){
 }
 
 void Circuit::opti_SA(double *b){
+	double cost = 0;
 	// iteration may broke the single descending characteristics	
-	//for(size_t i=0;i<1;i++){
+	for(size_t i=0;i<1;i++){
 		cost = optimize_pad_assign_new(b);
 		
 		locate_maxIRdrop();
@@ -2198,5 +2200,78 @@ void Circuit::opti_SA(double *b){
 		
 		locate_maxIRdrop();
 		clog<<"iter, max_IRdrop: "<<i<<" "<<max_IRdrop<<endl;	
-	//}
+	}
+}
+
+// perform mean shift like movement of pads
+void Circuit::Mean_shift_move(){
+	// define number of nodes in the window for centroid
+	int num_LIMIT = 500;
+	Node *center = VDD_set[9];	
+	Node *nd;
+	int N = 1;
+	double G=0;
+	Net *net;
+	Node *na, *nb, *nbr;
+	double weight = 0;
+	double weight_c, weight_f;
+	size_t mean_x, mean_y, mean_z;
+	CircularQueue q(nodelist.size()-1);
+	// N iterations
+	for(size_t i=0;i<N;i++){
+		for(size_t j=0;j<nodelist.size()-1;j++)
+			nodelist[j]->flag_visited = 0;
+		int num_nodes = 0;
+		q.reset();
+		q.insert(center);
+		center->flag_visited = 1;
+		clog<<"center node: "<<*center<<endl;
+		weight = VDD/center->value;
+		double sum_x = 0;
+		double sum_y = 0;
+		double sum_z = 0;
+		//clog<<"sum_x, y, z: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
+		num_nodes ++;
+
+		while(q.isEmpty()==false && num_nodes <= num_LIMIT){
+			nd = q.extractFront();
+			//clog<<"nd: "<<*nd<<endl;
+			for(size_t j=0;j<6;j++){
+				net = nd->nbr[j];
+				if(net == NULL) continue;
+				na = net->ab[0]; nb = net->ab[1];
+				if(nd->name == na->name) nbr = nb;
+				else	nbr = na;
+				if(!nbr->is_ground()&& nbr->flag_visited ==0){					
+					//clog<<endl<<"nbr node: "<<*nbr<<endl;
+					weight_c = VDD/nbr->value;
+					double diff_x = (nbr->pt.x - center->pt.x);
+					
+					double diff_y = (nbr->pt.y - center->pt.y);
+					double diff_z = (nbr->pt.z - center->pt.z);
+					//clog<<"diff_x', diff_y', diff_z': "<<diff_x*weight_c<<" "<<diff_y*weight_c<<" "<<diff_z*weight_c<<endl;
+					//clog<<endl<<"weight_c: "<<weight_c<<endl;
+					//clog<<"previous sum: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
+					sum_x += diff_x*weight_c;//weight*nbr->pt.x;
+					sum_y += diff_y*weight_c;//weight*nbr->pt.y;
+					sum_z += diff_z*weight_c;//weight*nbr->pt.z;
+					//clog<<"new sum_x, y, z: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
+					q.insert(nbr);
+					nbr->flag_visited ++;
+					num_nodes ++;
+				}
+			}
+		}
+		/*if(sum_x <0 || sum_x <0 || sum_z <0){
+			clog<<"total weight*node <0, wrong: "<<endl;
+			return;
+		}*/
+		clog<<"num_nodes: "<<num_nodes<<endl;	
+		// after getting the 100 nodes sum, compute mean
+		mean_x = (size_t)(center->pt.x + sum_x / num_nodes);
+		mean_y = (size_t)(center->pt.y + sum_y / num_nodes);
+		mean_z = (size_t)(center->pt.z + sum_z / num_nodes);
+	}
+	//clog<<"center, mean: "<<*center<<" "<<sum_x / num_nodes<<" "<<sum_y / num_nodes<<" "<<sum_z / num_nodes<<endl;
+	clog<<"new center: "<<mean_x<<" "<<mean_y<<" "<<mean_z<<endl;
 }

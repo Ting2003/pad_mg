@@ -133,6 +133,7 @@ public:
 	void random_init_iter();
 	void RANSAC_init();
 	void opti_SA(double *b);
+	void Mean_shift_move();
 	void build_criticalNodes();
 	double SACost();
 	bool acceptProb(double p);
