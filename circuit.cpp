@@ -653,37 +653,8 @@ void Circuit::solve(){
 
 	// use ransac method to get a better init pad assignment
 	RANSAC_init();
-	
-	double best_IRdrop = VDD;	
-	for(size_t i=0;i<1;i++){
-		cost = optimize_pad_assign_new(b);
-		
-		locate_maxIRdrop();
-		clog<<endl<<" max: "<<max_IRdrop<<endl;
-		cost = SA(b);
-		
-		locate_maxIRdrop();
-		if(abs(max_IRdrop) < (best_IRdrop))
-			best_IRdrop = max_IRdrop;
-		clog<<"iter, max_IRdrop: "<<i<<" "<<max_IRdrop<<endl;		
-	
-	}
-	//rebuild_voltage_nets();
-	//solve_LU_core();
-	//optimize_pad_assign(b);
-	//while(1){
-	/*for(int iter = 0;iter <1; iter++){
-		clog<<"cost before a new iteration. "<<cost<<endl;
-		clog<<"cost after optimize: "<<cost<<endl;
-		//if(iter ==0)
-		cost = SA_modified(b);
-		//for(size_t i=0;i<VDD_set.size();i++)
-			//cout<<"i, VDD_pad: "<<i<<" "<<*VDD_set[i]<<endl;
-		//clog<<"cost after SA. "<<cost<<endl;
-		// if cost keeps dropping, continue
-		// else break the loop
-		clog<<"cost after first iter. "<<cost<<endl;
-	}*/
+	// optimized method plus SA
+	opti_SA(b);
 	delete [] b;	
 }
 
@@ -2182,7 +2153,7 @@ void Circuit::RANSAC_init(){
 	best_VDD_set = VDD_set;	
 	double best_maxIRdrop = max_IRdrop;
 	// randomly select p patterns for init distribution
-	for(size_t i=0;i<100;i++){
+	for(size_t i=0;i<1000;i++){
 		// produce one pad assignment
 		random_init_iter();
 
@@ -2214,4 +2185,18 @@ void Circuit::RANSAC_init(){
 	rebuild_voltage_nets();
 	solve_LU_core();
 	best_VDD_set.clear();
+}
+
+void Circuit::opti_SA(double *b){
+	// iteration may broke the single descending characteristics	
+	//for(size_t i=0;i<1;i++){
+		cost = optimize_pad_assign_new(b);
+		
+		locate_maxIRdrop();
+		clog<<endl<<" max: "<<max_IRdrop<<endl;
+		cost = SA(b);
+		
+		locate_maxIRdrop();
+		clog<<"iter, max_IRdrop: "<<i<<" "<<max_IRdrop<<endl;	
+	//}
 }
