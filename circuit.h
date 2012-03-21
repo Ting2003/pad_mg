@@ -134,6 +134,7 @@ public:
 	void RANSAC_init();
 	void opti_SA(double *b);
 	void Mean_shift_move();
+	void Mean_shift_one_move();
 	void build_criticalNodes();
 	double SACost();
 	bool acceptProb(double p);

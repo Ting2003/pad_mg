@@ -2215,7 +2215,9 @@ void Circuit::Mean_shift_move(){
 	Node *na, *nb, *nbr;
 	double weight = 0;
 	double weight_c, weight_f;
-	size_t mean_x, mean_y, mean_z;
+	long mean_x, mean_y, mean_z;
+	double diff_x, diff_y, diff_z;
+	size_t min_index;
 	CircularQueue q(nodelist.size()-1);
 	// N iterations
 	for(size_t i=0;i<N;i++){
@@ -2225,12 +2227,11 @@ void Circuit::Mean_shift_move(){
 		q.reset();
 		q.insert(center);
 		center->flag_visited = 1;
-		clog<<"center node: "<<*center<<endl;
+		cout<<"center node: "<<*center<<endl;
 		weight = VDD/center->value;
 		double sum_x = 0;
 		double sum_y = 0;
 		double sum_z = 0;
-		//clog<<"sum_x, y, z: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
 		num_nodes ++;
 
 		while(q.isEmpty()==false && num_nodes <= num_LIMIT){
@@ -2243,35 +2244,74 @@ void Circuit::Mean_shift_move(){
 				if(nd->name == na->name) nbr = nb;
 				else	nbr = na;
 				if(!nbr->is_ground()&& nbr->flag_visited ==0){					
-					//clog<<endl<<"nbr node: "<<*nbr<<endl;
 					weight_c = VDD/nbr->value;
-					double diff_x = (nbr->pt.x - center->pt.x);
+					diff_x = (nbr->pt.x - 
+						center->pt.x);
 					
-					double diff_y = (nbr->pt.y - center->pt.y);
-					double diff_z = (nbr->pt.z - center->pt.z);
-					//clog<<"diff_x', diff_y', diff_z': "<<diff_x*weight_c<<" "<<diff_y*weight_c<<" "<<diff_z*weight_c<<endl;
-					//clog<<endl<<"weight_c: "<<weight_c<<endl;
-					//clog<<"previous sum: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
-					sum_x += diff_x*weight_c;//weight*nbr->pt.x;
-					sum_y += diff_y*weight_c;//weight*nbr->pt.y;
-					sum_z += diff_z*weight_c;//weight*nbr->pt.z;
-					//clog<<"new sum_x, y, z: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
+					diff_y = (nbr->pt.y - 
+						center->pt.y);
+					diff_z = (nbr->pt.z - 
+						center->pt.z);
+					sum_x += diff_x*weight_c;
+					sum_y += diff_y*weight_c;
+					sum_z += diff_z*weight_c;
 					q.insert(nbr);
 					nbr->flag_visited ++;
 					num_nodes ++;
 				}
 			}
 		}
-		/*if(sum_x <0 || sum_x <0 || sum_z <0){
-			clog<<"total weight*node <0, wrong: "<<endl;
-			return;
-		}*/
-		clog<<"num_nodes: "<<num_nodes<<endl;	
+		//clog<<"num_nodes: "<<num_nodes<<endl;	
 		// after getting the 100 nodes sum, compute mean
-		mean_x = (size_t)(center->pt.x + sum_x / num_nodes);
-		mean_y = (size_t)(center->pt.y + sum_y / num_nodes);
-		mean_z = (size_t)(center->pt.z + sum_z / num_nodes);
+		mean_x = (long)(center->pt.x + sum_x / num_nodes);
+		mean_y = (long)(center->pt.y + sum_y / num_nodes);
+		mean_z = (long)(center->pt.z + sum_z / num_nodes);
+
+		cout<<"new center: "<<mean_x<<" "<<mean_y<<" "<<mean_z<<endl;
+		// map this new center into one of the candidate location
+		double dist, min_dist;
+		size_t min_index = 0;
+		size_t count = 0;
+		// scan all candi location to find the closest one
+		for(size_t k=0;k<VDD_candi_set.size();k++){
+			Node * candi = VDD_candi_set[k];
+			if(candi->isX()== true) continue;
+			count ++;
+			//cout<<endl<<"k, candi: "<<k<<" "<<*candi<<endl;
+			//cout<<"candi->pt.x, mean_x: "<<candi->pt.x<<" "<<
+			//mean_x<<" "<<candi->pt.x-mean_x<<endl;
+			diff_x = fabs(candi->pt.x-mean_x);
+			diff_y = fabs(candi->pt.y-mean_y);
+			diff_z = fabs(candi->pt.z-mean_z);
+			dist = sqrt(diff_x*diff_x + diff_y*diff_y + 
+					diff_z*diff_z); 
+			//cout<<"min_dist, dist: "<<min_dist<<" "<<dist<<endl;
+			if(count==1){
+				min_dist = dist;
+				min_index = k;
+			}
+			else if(dist < min_dist){
+				min_dist = dist;
+				min_index = k;
+			}
+		}
+		
+		cout<<"min_dist, index: "<<min_dist<<" "<<min_index<<endl;
+ 
+		cout<<"corresponding candi: "<<*VDD_candi_set[min_index]<<endl;
+		// candidate location is in VDD_candi_set[min_index]
 	}
-	//clog<<"center, mean: "<<*center<<" "<<sum_x / num_nodes<<" "<<sum_y / num_nodes<<" "<<sum_z / num_nodes<<endl;
-	clog<<"new center: "<<mean_x<<" "<<mean_y<<" "<<mean_z<<endl;
+}
+
+// for a pad, find its new location in candi set
+void Circuit::Mean_shift_one_move(){
+	// define number of nodes in the window for centroid
+	int num_LIMIT = 500;
+	Node *center = VDD_set[9];	
+	Node *nd;
+	Node *na, *nb, *nbr;
+	double weight = 0;
+	double weight_c, weight_f;
+	size_t mean_x, mean_y, mean_z;
+	//CircularQueue q(nodelist.size()-1);
 }
