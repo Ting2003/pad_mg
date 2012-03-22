@@ -134,7 +134,10 @@ public:
 	void RANSAC_init();
 	void opti_SA(double *b);
 	void Mean_shift_move();
-	void Mean_shift_one_move();
+	void Mean_shift_one_move(Node *center, 
+	  size_t center_index, Node *&new_center, 
+	  size_t &new_candi_index);
+	Node* find_max_IRdrop_candi(Node *rm_pad, size_t Radius);
 	void build_criticalNodes();
 	double SACost();
 	bool acceptProb(double p);

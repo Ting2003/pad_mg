@@ -653,9 +653,10 @@ void Circuit::solve(){
 
 	// use ransac method to get a better init pad assignment
 	//RANSAC_init();
+
+	//Mean_shift_move();
 	// optimized method plus SA
-	//opti_SA(b);
-	Mean_shift_move();
+	opti_SA(b);
 	delete [] b;	
 }
 
@@ -1502,11 +1503,16 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	//1. randomly pick a Vdd pad to remove
 	rm_pad_index = random_gen(0, VDD_num-1); 
 	rm_pad = VDD_set[rm_pad_index];
-	//clog<<"rm_pad: "<<*rm_pad<<endl;
+
+	//Mean_shift_one_move(rm_pad, rm_pad_index, add_pad, add_index);
+	//clog<<"rm_pad, add pad: "<<*rm_pad<<" "<<*add_pad<<endl;
+	clog<<"rm_pad: "<<*rm_pad<<endl;
 	// It is no more X node
 	rm_pad->flag= false;
 	rm_pad->value = 0;
 
+	size_t radius = 1;
+	add_pad = find_max_IRdrop_candi(rm_pad, radius);
 	// find its neiboring pad candidates	
 	form_nbr_pads(rm_pad, nbr_pads);	
 	if(nbr_pads.size()==0) return;
@@ -1514,15 +1520,18 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	
 	// random select a valid nbr pad
 	nbr_index = random_gen(0, nbr_pads.size()-1);
-	//clog<<"nbr_index: "<<nbr_index<<endl; 
-	add_pad = nbr_pads[nbr_index];
+	//clog<<"nbr_index: "<<nbr_index<<endl;
+	if(add_pad->name == rm_pad->name) 
+		add_pad = nbr_pads[nbr_index];
+	// choose candi pads by mean shift method
 	add_pad->flag = true;
 	add_pad->value = VDD;
-	//clog<<"add_pad: "<<*add_pad<<endl; 
+	clog<<"add_pad: "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
 	update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
 			iter_move, rhs);
+	
 }
 
 void Circuit::one_move_modified(vector<Node*>&nodesUpdate_move,
@@ -2206,112 +2215,167 @@ void Circuit::opti_SA(double *b){
 // perform mean shift like movement of pads
 void Circuit::Mean_shift_move(){
 	// define number of nodes in the window for centroid
-	int num_LIMIT = 500;
-	Node *center = VDD_set[9];	
-	Node *nd;
 	int N = 1;
-	double G=0;
-	Net *net;
-	Node *na, *nb, *nbr;
+	Node *add_pad;
+	size_t add_candi_index;
+	// N iterations
+	for(size_t i=1;i<=N;i++){
+		for(size_t j=0;j<VDD_set.size();j++){
+			Node *rm_pad = VDD_set[j];	
+			Mean_shift_one_move(rm_pad, j, add_pad, 
+				add_candi_index);
+			
+			rebuild_voltage_nets();
+			solve_LU_core();
+			// then update node values
+		}
+		// update node values after a move
+	}
+}
+
+// for a pad, find its new location in candi set
+void Circuit::Mean_shift_one_move(Node *center, size_t center_index, 
+	Node *&new_center, size_t &new_candi_index){
+	// define number of nodes in the window for centroid
+	int num_LIMIT = 500;
+	Node *nd, *na, *nb, *nbr;
 	double weight = 0;
 	double weight_c, weight_f;
 	long mean_x, mean_y, mean_z;
 	double diff_x, diff_y, diff_z;
 	size_t min_index;
+	Net *net;
 	CircularQueue q(nodelist.size()-1);
-	// N iterations
-	for(size_t i=0;i<N;i++){
-		for(size_t j=0;j<nodelist.size()-1;j++)
-			nodelist[j]->flag_visited = 0;
-		int num_nodes = 0;
-		q.reset();
-		q.insert(center);
-		center->flag_visited = 1;
-		cout<<"center node: "<<*center<<endl;
-		weight = VDD/center->value;
-		double sum_x = 0;
-		double sum_y = 0;
-		double sum_z = 0;
-		num_nodes ++;
+	
+	for(size_t j=0;j<nodelist.size()-1;j++)
+		nodelist[j]->flag_visited = 0;
+	int num_nodes = 0;
+	q.reset();
+	q.insert(center);
+	center->flag_visited = 1;
+	//cout<<endl<<"center node: "<<*center<<endl;
+	weight = VDD/center->value;
+	double sum_x = 0;
+	double sum_y = 0;
+	double sum_z = 0;
+	num_nodes ++;
 
-		while(q.isEmpty()==false && num_nodes <= num_LIMIT){
-			nd = q.extractFront();
-			//clog<<"nd: "<<*nd<<endl;
-			for(size_t j=0;j<6;j++){
-				net = nd->nbr[j];
-				if(net == NULL) continue;
-				na = net->ab[0]; nb = net->ab[1];
-				if(nd->name == na->name) nbr = nb;
-				else	nbr = na;
-				if(!nbr->is_ground()&& nbr->flag_visited ==0){					
-					weight_c = VDD/nbr->value;
-					diff_x = (nbr->pt.x - 
-						center->pt.x);
-					
-					diff_y = (nbr->pt.y - 
-						center->pt.y);
-					diff_z = (nbr->pt.z - 
-						center->pt.z);
-					sum_x += diff_x*weight_c;
-					sum_y += diff_y*weight_c;
-					sum_z += diff_z*weight_c;
-					q.insert(nbr);
-					nbr->flag_visited ++;
-					num_nodes ++;
-				}
+	while(q.isEmpty()==false && num_nodes <= num_LIMIT){
+		nd = q.extractFront();
+		//clog<<"nd: "<<*nd<<endl;
+		for(size_t j=0;j<6;j++){
+			net = nd->nbr[j];
+			if(net == NULL) continue;
+			na = net->ab[0]; nb = net->ab[1];
+			if(nd->name == na->name) nbr = nb;
+			else	nbr = na;
+			if(!nbr->is_ground()&& nbr->flag_visited ==0){
+				//cout<<"nbr: "<<*nbr<<endl;
+				weight_c = VDD/nbr->value;
+				diff_x = (nbr->pt.x - center->pt.x);
+				diff_y = (nbr->pt.y - center->pt.y);
+				diff_z = (nbr->pt.z - center->pt.z);
+				//cout<<"diff_x, y, z: "<<diff_x<<" "<<diff_y<<" "<<diff_z<<endl;
+				sum_x += diff_x*weight_c;
+				sum_y += diff_y*weight_c;
+				sum_z += diff_z*weight_c;
+
+				//cout<<"sum_x, y, z: "<<sum_x<<" "<<sum_y<<" "<<sum_z<<endl;
+				q.insert(nbr);
+				nbr->flag_visited ++;
+				num_nodes ++;
 			}
 		}
-		//clog<<"num_nodes: "<<num_nodes<<endl;	
-		// after getting the 100 nodes sum, compute mean
-		mean_x = (long)(center->pt.x + sum_x / num_nodes);
-		mean_y = (long)(center->pt.y + sum_y / num_nodes);
-		mean_z = (long)(center->pt.z + sum_z / num_nodes);
-
-		cout<<"new center: "<<mean_x<<" "<<mean_y<<" "<<mean_z<<endl;
-		// map this new center into one of the candidate location
-		double dist, min_dist;
-		size_t min_index = 0;
-		size_t count = 0;
-		// scan all candi location to find the closest one
-		for(size_t k=0;k<VDD_candi_set.size();k++){
-			Node * candi = VDD_candi_set[k];
-			if(candi->isX()== true) continue;
-			count ++;
-			//cout<<endl<<"k, candi: "<<k<<" "<<*candi<<endl;
-			//cout<<"candi->pt.x, mean_x: "<<candi->pt.x<<" "<<
-			//mean_x<<" "<<candi->pt.x-mean_x<<endl;
-			diff_x = fabs(candi->pt.x-mean_x);
-			diff_y = fabs(candi->pt.y-mean_y);
-			diff_z = fabs(candi->pt.z-mean_z);
-			dist = sqrt(diff_x*diff_x + diff_y*diff_y + 
-					diff_z*diff_z); 
-			//cout<<"min_dist, dist: "<<min_dist<<" "<<dist<<endl;
-			if(count==1){
-				min_dist = dist;
-				min_index = k;
-			}
-			else if(dist < min_dist){
-				min_dist = dist;
-				min_index = k;
-			}
-		}
-		
-		cout<<"min_dist, index: "<<min_dist<<" "<<min_index<<endl;
- 
-		cout<<"corresponding candi: "<<*VDD_candi_set[min_index]<<endl;
-		// candidate location is in VDD_candi_set[min_index]
 	}
+	//clog<<"num_nodes: "<<num_nodes<<endl;	
+	// after getting the 100 nodes sum, compute mean
+	mean_x = (long)(center->pt.x + sum_x / num_nodes);
+	mean_y = (long)(center->pt.y + sum_y / num_nodes);
+	mean_z = (long)(center->pt.z + sum_z / num_nodes);
+	//cout<<center->pt.x+sum_x/num_nodes<<" "<<center->pt.y + 
+		//sum_y / num_nodes<<" "<<center->pt.z + sum_z / num_nodes<<endl;
+	//cout<<"new center: "<<mean_x<<" "<<mean_y<<" "<<mean_z<<endl;
+	// map this new center into one of the candidate location
+	double dist, min_dist;
+	size_t count = 0;
+	// scan all candi location to find the closest one
+	for(size_t k=0;k<VDD_candi_set.size();k++){
+		Node * candi = VDD_candi_set[k];
+		if(candi->isX()== true) continue;
+		count ++;
+		//cout<<endl<<"k, candi: "<<k<<" "<<*candi<<endl;
+		//cout<<"candi->pt.x, mean_x: "<<candi->pt.x<<" "<<
+		//mean_x<<" "<<candi->pt.x-mean_x<<endl;
+		diff_x = fabs(candi->pt.x-mean_x);
+		diff_y = fabs(candi->pt.y-mean_y);
+		diff_z = fabs(candi->pt.z-mean_z);
+		dist = sqrt(diff_x*diff_x + diff_y*diff_y + 
+				diff_z*diff_z); 
+		//cout<<"min_dist, dist: "<<min_dist<<" "<<dist<<endl;
+		if(count==1){
+			min_dist = dist;
+			min_index = k;
+		}
+		else if(dist < min_dist){
+			min_dist = dist;
+			min_index = k;
+		}
+	}
+
+	//cout<<"min_dist, index: "<<min_dist<<" "<<min_index<<endl;
+
+	//cout<<"corresponding candi: "<<*VDD_candi_set[min_index]<<endl;
+	// update node flag in VDD_set
+	//VDD_set[center_index]->flag = false;
+	//VDD_set[center_index]->value = 0;
+	//VDD_set[center_index] = VDD_candi_set[min_index];
+	//VDD_set[center_index]->flag = true;
+	//VDD_set[center_index]->value = VDD;
+	new_center = VDD_candi_set[min_index];
+	new_candi_index = min_index;
+	q.reset();
 }
 
-// for a pad, find its new location in candi set
-void Circuit::Mean_shift_one_move(){
-	// define number of nodes in the window for centroid
-	int num_LIMIT = 500;
-	Node *center = VDD_set[9];	
+// find the maximum candi locations within radius of rm_pad
+Node* Circuit::find_max_IRdrop_candi(Node *rm_pad, size_t Limit){
 	Node *nd;
+	double IRdrop;
+	double maxIRdrop = 0;
+	Node *max_pad;
 	Node *na, *nb, *nbr;
-	double weight = 0;
-	double weight_c, weight_f;
-	size_t mean_x, mean_y, mean_z;
-	//CircularQueue q(nodelist.size()-1);
+	nd = NULL; max_pad = NULL;
+	// store the original flag_visited for nodes
+	//vector<size_t> VDD_candi_flag_visited_temp;
+	//VDD_candi_flag_visited_temp.resize(VDD_candi_set.size());
+	//for(size_t i=0;i<VDD_candi_set.size();i++){
+		//VDD_candi_flag_visited_temp[i] = VDD_candi_set[i]->flag_visited;
+	//}
+	//size_t count = 0;
+	//nd = rm_pad;
+	//rm_pad->flag_visited ++;
+	//while(nd != NULL && count++ < Limit){
+		for(size_t i=0;i<4;i++){
+			Net *net = rm_pad->nbr_pad[i];
+			if(net== NULL) continue;
+			na = net->ab[0];
+			nb = net->ab[1];
+			if(na->name == rm_pad->name && !nb->is_ground())
+				nbr = nb;
+			else if(nb->name == rm_pad->name && !na->is_ground())
+				nbr = na;
+			//if(nbr->flag_visited != 0) continue;
+			if(VDD-nbr->value > maxIRdrop){
+				maxIRdrop = VDD-nbr->value;
+				max_pad = nbr;
+				nbr->flag_visited ++;
+			}
+			//nd = nbr;
+		}
+	//}	
+	// assign flag_visited back
+	//for(size_t i=0;i<VDD_candi_set.size();i++)
+		//VDD_candi_set[i]->flag_visited = 
+		 // VDD_candi_flag_visited_temp[i];
+	//VDD_candi_flag_visited_temp.clear();
+	return max_pad;
 }
