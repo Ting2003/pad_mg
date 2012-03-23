@@ -47,7 +47,6 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 	// extract ground node exclusively
 	for(size_t i=0;i<ckt->nodelist.size()-1;i++){
 		Node *nd = ckt->nodelist[i];
-		//clog<<endl<<"ckt_nd: "<<*nd<<endl;
 		if(i==0){
 			prev_pt = nd->pt;
 		}
@@ -59,7 +58,6 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 		}
 		if(count_y ==2)
 			prev_pt = nd->pt;
-		//clog<<"count_x and y: "<<count_x<<" "<<count_y<<endl;
 		// keep this node in coarse grid
 		if(count_y % 2==0 && count_x % 2 ==0){			
 			pt_c.x = nd->pt.x / 2;
@@ -69,18 +67,19 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 
 			// add this node into coarse nodelist
 			Node *nd_c = new Node(nd->name, pt_c, false, 0.0);
-			//clog<<"nd_c: "<<*nd_c<<endl;
 			coarse_ckt->nodelist.push_back(nd_c);
-			//clog<<"push back nd_c. "<<endl;
 			count_y = 0;
 			count_x = 0;	
 		}
 	}
-	//clog<<"before ground node. "<<endl;
 	// handle ground node
 	Node *nd = ckt->nodelist[ckt->nodelist.size()-1];
-	Node *nd_c = new Node(*nd);
-	coarse_ckt->nodelist.push_back(nd_c);
+	Node *nd_c = new Node(*nd);	
+	// add nd_c into nodelist, and build up map
+	coarse_ckt->add_node(nd_c);
+
+	// need to find the net connection from finer grid
+	
 	//for(size_t i=0;i< coarse_ckt->nodelist.size();i++){
 		//cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
 		  //*coarse_ckt->nodelist[i]<<" "<<coarse_ckt->nodelist[i]->pt<<endl;	
