@@ -76,6 +76,7 @@ Circuit::~Circuit(){
 	VDD_set.clear();
 	VDD_candi_set.clear();
 	CriticalNodes.clear();
+	map_node.clear();
 }
 
 void Circuit::check_sys() const{

@@ -34,7 +34,9 @@ public:
 	// functions
 	// build up mg_ckts
 	void build_mg_ckt(Circuit *ckt, int layer);
-	Circuit * build_one_layer_circuit(Circuit *ckt);
+	// build coarser grid from fine one
+	Circuit * build_one_layer_circuit_nodelist(Circuit *ckt);
+	void build_one_layer_circuit(Circuit *ckt, int level);
 	void set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		Circuit *&coarse_ckt);
 	// solve the circuit from coarse to fine

@@ -304,7 +304,7 @@ void Parser::parse(char * filename1, char *filename2){
 			assign_pads(line, ckt);
 		}
 
-		ckt->map_node.clear();
+		//ckt->map_node.clear();
 	}		
 	fclose(f);
 }// end of parse
