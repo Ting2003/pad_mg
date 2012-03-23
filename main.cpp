@@ -103,6 +103,9 @@ int main(int argc, char * argv[]){
 		if(ckt->get_name()=="VDD"){
 		clog<<"Solving "<<ckt->get_name()<<endl;
 		ckt->solve();
+		clog<<"start mg. "<<endl;
+		MG_Circuit mg_ckt;
+		mg_ckt.build_mg_ckt(ckt, 1);
 		// DEBUG: output each circuit to separate file
 		//char ofname[MAX_BUF];
 		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());
@@ -110,7 +113,7 @@ int main(int argc, char * argv[]){
 		//cktlist[i]->print();
 		//cout<<endl;
 		//cktlist[i]->print_power();
-		cktlist[i]->print_matlab();
+		//cktlist[i]->print_matlab();
 		//clog<<(*ckt)<<endl;
 		clog<<endl;
 		// after that, this circuit can be released

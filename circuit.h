@@ -255,7 +255,9 @@ private:
 	void merge_node(Node * node);
 
 	// ************** member variables *******************
+public:
 	NodePtrVector nodelist;		// a set of nodes
+private:
 	NodePtrVector replist;		// a set of representative nodes
 	NodePtrVector mergelist;	// nodes for merging
 	NetList net_set[NUM_NET_TYPE];// should be the same as size of NET_TYPE

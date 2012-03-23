@@ -249,7 +249,6 @@ double Circuit::SA(double *rhs){
 
 	double T = 100; // a initial guess
 	double Frozen_T=0.01;
-	size_t REJECT_LIMIT=60;
 	size_t Movement = 10;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
@@ -652,13 +651,13 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 
 	// use ransac method to get a better init pad assignment
-	RANSAC_init();
+	//RANSAC_init();
 
 	//Mean_shift_move();
 	// optimized method plus SA
-	opti_SA(b);
-	rebuild_voltage_nets();
-	solve_LU_core();
+	//opti_SA(b);
+	//rebuild_voltage_nets();
+	//solve_LU_core();
 	delete [] b;	
 }
 
@@ -2242,7 +2241,7 @@ void Circuit::Mean_shift_one_move(Node *center, size_t center_index,
 	int num_LIMIT = 500;
 	Node *nd, *na, *nb, *nbr;
 	double weight = 0;
-	double weight_c, weight_f;
+	double weight_c;
 	long mean_x, mean_y, mean_z;
 	double diff_x, diff_y, diff_z;
 	size_t min_index;

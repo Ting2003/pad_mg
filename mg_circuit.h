@@ -24,17 +24,17 @@ using namespace std;
 
 class MG_Circuit{
 public:
-	MG_Circuit(string name="");
+	MG_Circuit();
 	~MG_Circuit();
 
-	string name;
 	int LEVEL; // multigrid levels
-	vector<Circuit> mg_ckt; // define circuit vector
+	vector<Circuit*> mg_ckt; // define circuit vector
 	// add unordered map for VDD_set between nbr layers
 	
 	// functions
 	// build up mg_ckts
-	void build_mg_ckt(Circuit *ckt);
+	void build_mg_ckt(Circuit *ckt, int layer);
+	Circuit * build_one_layer_circuit(Circuit *ckt);
 	// solve the circuit from coarse to fine
 	void solve_mg_ckt(Circuit *ckt);
 };
