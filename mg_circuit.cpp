@@ -67,7 +67,7 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 
 			// add this node into coarse nodelist
 			Node *nd_c = new Node(nd->name, pt_c, false, 0.0);
-			coarse_ckt->nodelist.push_back(nd_c);
+			coarse_ckt->add_node(nd_c);
 			count_y = 0;
 			count_x = 0;	
 		}
