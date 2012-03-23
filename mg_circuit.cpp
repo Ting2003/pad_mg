@@ -56,8 +56,6 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 				count_y ++;
 			if(nd->pt.y == prev_pt.y && nd->pt.z == prev_pt.z)
 				count_x++;
-			if(nd->pt.y != prev_pt.y && nd->pt.x != prev_pt.x)
-				count_switch ++;
 		}
 		if(count_y ==2)
 			prev_pt = nd->pt;
@@ -83,10 +81,10 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 	Node *nd = ckt->nodelist[ckt->nodelist.size()-1];
 	Node *nd_c = new Node(*nd);
 	coarse_ckt->nodelist.push_back(nd_c);
-	for(size_t i=0;i< coarse_ckt->nodelist.size();i++){
-		cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
-		  *coarse_ckt->nodelist[i]<<" "<<coarse_ckt->nodelist[i]->pt<<endl;	
-	}
+	//for(size_t i=0;i< coarse_ckt->nodelist.size();i++){
+		//cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
+		  //*coarse_ckt->nodelist[i]<<" "<<coarse_ckt->nodelist[i]->pt<<endl;	
+	//}
 	return coarse_ckt;
 }
 
