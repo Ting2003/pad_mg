@@ -59,6 +59,7 @@ public:
 	// {TOP, BOTTOM, NORTH, SOUTH}
 	Net * nbr[6];		// neighboring nets
 	Net * nbr_pad[4];	// neighboring pad nets
+	Net * nbr_current;	// add current net at this node
 
 	size_t rid;		// id in rep_list
 

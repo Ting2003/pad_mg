@@ -45,8 +45,9 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 	int count_x=0;
 	int count_y=0;
 	// extract ground node exclusively
-	for(size_t i=0;i<ckt->nodelist.size()-1;i++){
+	for(size_t i=0;i<5;i++){//ckt->nodelist.size()-1;i++){
 		Node *nd = ckt->nodelist[i];
+		clog<<endl<<"center node: "<<*nd<<endl;
 		if(i==0){
 			prev_pt = nd->pt;
 		}
@@ -68,6 +69,8 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 			// add this node into coarse nodelist
 			Node *nd_c = new Node(nd->name, pt_c, false, 0.0);
 			coarse_ckt->add_node(nd_c);
+			// build the nbr nets
+			set_nbr_nets(nd, nd_c, ckt, coarse_ckt);
 			count_y = 0;
 			count_x = 0;	
 		}
@@ -75,7 +78,7 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 	// handle ground node
 	Node *nd = ckt->nodelist[ckt->nodelist.size()-1];
 	Node *nd_c = new Node(*nd);	
-	// add nd_c into nodelist, and build up map
+	// add G into nodelist, and build up map
 	coarse_ckt->add_node(nd_c);
 
 	// need to find the net connection from finer grid
@@ -87,5 +90,83 @@ Circuit * MG_Circuit::build_one_layer_circuit(Circuit *ckt){
 	return coarse_ckt;
 }
 
+// for each node in coarse grid, build its neighboring nets 
+// also build current nets on coarse grid
+void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
+	Circuit *&coarse_ckt){
+	Net *nbr_net;
+	Node *center, *nd_a, *nd_b;
+	Net *nbr_net_x, *nbr_net_y;
+	Node *nbr_x, *nbr_y;
+	Net *coarse_net_x;
+	Net *coarse_net_y;
+	Net *coarse_net_current;
+	double value_x, value_y, current;
+	value_x = 0;
+	value_y = 0;
+	current = 0;
+	// store the 4 interest node;
+	Node *nd_temp[4];
+	nd_temp[0] = nd;
+	
+	for(int i=1;i<4;i++){
+		if(i<3) center = nd;
+		else	center = nd_temp[i-1];
+		if(i==1 || i==3)
+			nbr_net = center->nbr[EAST];
+		else	nbr_net = center->nbr[NORTH];
+		if(nbr_net == NULL) break;
+		nd_a = nbr_net->ab[0];
+		nd_b = nbr_net->ab[1];
+		if(nd_a->name == center->name) 
+			nd_temp[i] = nd_b;
+		else	nd_temp[i] = nd_a;
+	}
+	
+	for (int i=0;i<4;i++)
+		if(nd_temp[i]!=NULL)
+		clog<<"4 interest node: "<<*nd_temp[i]<<endl;
+	// then form the nbr resistor and current nets
+	for(int i=0;i<4;i++){
+		if(nd_temp[i]==NULL) continue;
+		center = nd_temp[i];
+		nbr_net_x = center->nbr[EAST];
+		nbr_net_y = center->nbr[NORTH];
+		nbr_net_c = center->nbr_current;
+		if(nbr_net_x != NULL)
+			value_x += nbr_net_x->value;
+		if(nbr_net_y != NULL)
+			value_y += nbr_net_y->value;
+		if(nbr_net_c != NULL)
+			current += nbr_net_c->value;	
+	}
+	nbr_x = NULL; nbr_y = NULL;
+	if(value_x != 0 && nd_temp[1]!=NULL){
+		nbr_net = nd_temp[1]->nbr[EAST];
+		if(nbr_net !=NULL){
+			nd_a = nbr_net->ab[0];
+			nd_b = nbr_net->ab[1];
+			if(nd_a->name == nd_temp[1]->name)
+				nbr_x = nd_b;
+			else 	nbr_x = nd_a;
+		}
+	}
+	if(value_y != 0 && nd_temp[2]!=NULL){
+		nbr_net = nd_temp[2]->nbr[NORTH];
+		if(nbr_net !=NULL){
+			nd_a = nbr_net->ab[0];
+			nd_b = nbr_net->ab[1];
+			if(nd_a->name == nd_temp[2]->name)
+				nbr_y = nd_b;
+			else 	nbr_y = nd_a;
+		}
+	}
+	if(nbr_x != NULL)		
+		coarse_net_x = new Net(RESISTOR, value_x, nd, nbr_x);
+	if(nbr_y != NULL)
+		coarse_net_y = new Net(RESISTOR, value_y, nd, nbr_y);
+	if(current != 0)
+		coarse_net_current = new Net(CURRENT, current, nd, 0); 
+}
 //void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 //} 
