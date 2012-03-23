@@ -96,7 +96,7 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 	Circuit *&coarse_ckt){
 	Net *nbr_net;
 	Node *center, *nd_a, *nd_b;
-	Net *nbr_net_x, *nbr_net_y;
+	Net *nbr_net_x, *nbr_net_y, *nbr_net_c;
 	Node *nbr_x, *nbr_y;
 	Net *coarse_net_x;
 	Net *coarse_net_y;
@@ -132,7 +132,7 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		center = nd_temp[i];
 		nbr_net_x = center->nbr[EAST];
 		nbr_net_y = center->nbr[NORTH];
-		nbr_net_c = center->nbr_current;
+		nbr_net_c = center->nbr[BOTTOM];
 		if(nbr_net_x != NULL)
 			value_x += nbr_net_x->value;
 		if(nbr_net_y != NULL)
