@@ -652,11 +652,13 @@ void Circuit::solve(){
 	stamp_rhs_SA(b);
 
 	// use ransac method to get a better init pad assignment
-	//RANSAC_init();
+	RANSAC_init();
 
 	//Mean_shift_move();
 	// optimized method plus SA
 	opti_SA(b);
+	rebuild_voltage_nets();
+	solve_LU_core();
 	delete [] b;	
 }
 
@@ -1506,7 +1508,7 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 
 	//Mean_shift_one_move(rm_pad, rm_pad_index, add_pad, add_index);
 	//clog<<"rm_pad, add pad: "<<*rm_pad<<" "<<*add_pad<<endl;
-	clog<<"rm_pad: "<<*rm_pad<<endl;
+	//clog<<"rm_pad: "<<*rm_pad<<endl;
 	// It is no more X node
 	rm_pad->flag= false;
 	rm_pad->value = 0;
@@ -1526,7 +1528,7 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	// choose candi pads by mean shift method
 	add_pad->flag = true;
 	add_pad->value = VDD;
-	clog<<"add_pad: "<<*add_pad<<endl; 
+	//clog<<"rm_pad, add_pad: "<<*rm_pad<<" "<<*add_pad<<endl; 
 
 	// update pad value and nbr area by iterations
 	update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
@@ -2348,34 +2350,40 @@ Node* Circuit::find_max_IRdrop_candi(Node *rm_pad, size_t Limit){
 	//vector<size_t> VDD_candi_flag_visited_temp;
 	//VDD_candi_flag_visited_temp.resize(VDD_candi_set.size());
 	//for(size_t i=0;i<VDD_candi_set.size();i++){
-		//VDD_candi_flag_visited_temp[i] = VDD_candi_set[i]->flag_visited;
+		//VDD_candi_flag_visited_temp[i] = 
+			//VDD_candi_set[i]->flag_visited;
+		//VDD_candi_set[i]->flag_visited = 0;
 	//}
 	//size_t count = 0;
-	//nd = rm_pad;
+	nd = rm_pad;
 	//rm_pad->flag_visited ++;
-	//while(nd != NULL && count++ < Limit){
+	//clog<<endl<<"rm_pad: "<<*rm_pad<<endl;
+	//while(nd != NULL && count < Limit){
+		//clog<<"center node: "<<*nd<<endl;
 		for(size_t i=0;i<4;i++){
-			Net *net = rm_pad->nbr_pad[i];
+			Net *net = nd->nbr_pad[i];
 			if(net== NULL) continue;
 			na = net->ab[0];
 			nb = net->ab[1];
-			if(na->name == rm_pad->name && !nb->is_ground())
+			if(na->name == nd->name && !nb->is_ground())
 				nbr = nb;
-			else if(nb->name == rm_pad->name && !na->is_ground())
+			else if(nb->name == nd->name && !na->is_ground())
 				nbr = na;
 			//if(nbr->flag_visited != 0) continue;
+			//clog<<"effective nbr: "<<*nbr<<endl;
+			//count ++;
 			if(VDD-nbr->value > maxIRdrop){
 				maxIRdrop = VDD-nbr->value;
 				max_pad = nbr;
-				nbr->flag_visited ++;
+				//nd = nbr;
+				//nbr->flag_visited ++;				
 			}
-			//nd = nbr;
 		}
 	//}	
 	// assign flag_visited back
 	//for(size_t i=0;i<VDD_candi_set.size();i++)
 		//VDD_candi_set[i]->flag_visited = 
-		 // VDD_candi_flag_visited_temp[i];
+		  //VDD_candi_flag_visited_temp[i];
 	//VDD_candi_flag_visited_temp.clear();
 	return max_pad;
 }
