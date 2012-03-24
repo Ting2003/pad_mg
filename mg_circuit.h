@@ -39,6 +39,7 @@ public:
 	void build_one_layer_circuit(Circuit *ckt, int level);
 	void set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		Circuit *&coarse_ckt);
+	void set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt);
 	// solve the circuit from coarse to fine
 	void solve_mg_ckt(Circuit *ckt);
 };
