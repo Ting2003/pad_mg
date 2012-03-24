@@ -40,8 +40,11 @@ public:
 	void set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		Circuit *&coarse_ckt);
 	void set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt);
+	void set_pad_nbr_nets(Circuit *ckt, Circuit *&coarse_ckt);
 	// solve the circuit from coarse to fine
 	void solve_mg_ckt(Circuit *ckt);
+	void set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
+		Circuit *&coarse_ckt);
 };
 
 #endif

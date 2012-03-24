@@ -102,7 +102,10 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 		nd = ckt->get_node(nd_c->name);
 		// build the nbr nets
 		set_nbr_nets(nd, nd_c, ckt, mg_ckt[level]);
+		// build up VDD pads and candi pads
 		set_VDD_pads(ckt, mg_ckt[LEVEL]);
+		// build pad neighboring connections
+		set_pad_nbr_nets(ckt, mg_ckt[LEVEL]);
 	}
 }
 // for each node in coarse grid, build its neighboring nets 
@@ -244,6 +247,35 @@ void MG_Circuit::set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt){
 		nd_c = coarse_ckt->get_node(nd->name);
 		coarse_ckt->VDD_candi_set[i] = nd_c;
 	}
+}
+
+// build pad connection nets
+void MG_Circuit::set_pad_nbr_nets(Circuit *ckt, Circuit *&coarse_ckt){
+	Node *nd_c, *nd;
+	for(size_t i=0;i<coarse_ckt->VDD_candi_set.size();i++){
+		nd_c  = coarse_ckt->VDD_candi_set[i];
+		nd = ckt->get_node(nd_c->name);
+		set_pad_nbr_net(nd, nd_c, ckt, coarse_ckt);		
+	}
+}
+
+// build coarse grid candi neighbors from finer grid
+void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
+		Circuit *&coarse_ckt){
+	Net *net;
+	Net *net_coarse;
+	Node *na, *nb, *nbr, *nbr_c;
+	for(int i=0;i<4;i++){
+		net = nd->nbr_pad[i];
+		if(net == NULL) continue;
+		na = net->ab[0];
+		nb = net->ab[1];
+		if(na->name == nd->name) nbr = nb;
+		else	nbr = na;
+		nbr_c = coarse_ckt->get_node(nbr->name);
+		net_coarse = new Net(PAD, 0, nd_c, nbr_c);
+		nd_c->nbr[i] = net_coarse;
+	}		
 }
 //void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 //} 
