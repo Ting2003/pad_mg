@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <tr1/unordered_map>
+#include <map>
 #include <cmath>
 #include "circuit.h"
 using namespace std;
@@ -29,6 +30,10 @@ public:
 
 	int LEVEL; // multigrid levels
 	vector<Circuit*> mg_ckt; // define circuit vector
+	// map stores the candi mapping from coarse to finer grid
+	// first is the name of candi node in coarse grid
+	// second is the candi node in finer grid
+	vector<unordered_map<string, Node *> > map_candi;
 	// add unordered map for VDD_set between nbr layers
 	
 	// functions
@@ -40,7 +45,8 @@ public:
 	void set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		Circuit *&coarse_ckt);
 	void set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt);
-	void set_pad_nbr_nets(Circuit *ckt, Circuit *&coarse_ckt);
+	void set_VDD_candi_pads(Circuit *ckt, Circuit *&coarse_ckt, int level);
+	void set_pad_nbr_nets(Circuit *ckt, Circuit *&coarse_ckt, int level);
 	// solve the circuit from coarse to fine
 	void solve_mg_ckt(Circuit *ckt);
 	void set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
