@@ -111,8 +111,8 @@ public:
 	set<Node*, VoltageLessThan> CriticalNodes;
 	/////////// functions //////////
 	void print_power();
-	double optimize_pad_assign(double *rhs);
-	double optimize_pad_assign_new(double *rhs);
+	double optimize_pad_assign();
+	double optimize_pad_assign_new();
 	void clear_candi_visit();
 	void rebuild_voltage_nets();
 
@@ -128,11 +128,11 @@ public:
 	double area_IRdrop(Node *nd);
 
 	//locate the max IR drop numbers
-	void locate_maxIRdrop();
+	double locate_maxIRdrop();
 	void locate_thIRdrop();
 	void random_init_iter();
 	void RANSAC_init();
-	void opti_SA(double *b);
+	void opti_SA();
 	void Mean_shift_move();
 	void Mean_shift_one_move(Node *center, 
 	  size_t center_index, Node *&new_center, 
@@ -145,18 +145,18 @@ public:
 	void stamp_rhs_SA(double* b);
 	void solve_GS(double *b);
 	void solve_GS();
-	double SA(double *rhs);
+	double SA();
 	double SA_modified(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
 	void update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter);
-	double update_node_value(int iter, Node *&rm_pad, Node *&nd, double *rhs);
+	double update_node_value(int iter, Node *&rm_pad, Node *&nd);
 	void update_pad_value(Node *rm_pad, Node *add_pad, 
-	vector<Node*>&nodesUpdate_move, int iter_move, double *rhs);
+	vector<Node*>&nodesUpdate_move, int iter_move);
 	void update_pad_value_optimize(Node *rm_pad, Node *add_pad, 
 		int iter_move, double *rhs);
 	void one_move(vector<Node*>&nodesUpdate_move,
-	  double *rhs, Node *&rm_pad, Node *&add_pad, 
+	  Node *&rm_pad, Node *&add_pad, 
 	  size_t &rm_pad_index, size_t iter_move);
 	void one_move_modified(vector<Node*>&nodesUpdate_move,
 	  double *rhs, Node *&rm_pad, Node *&add_pad,  

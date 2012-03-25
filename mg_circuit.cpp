@@ -359,10 +359,44 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 		nb = net->ab[1];
 		if(na->name == nd->name) nbr = nb;
 		else	nbr = na;
+	
+		Node *temp = nbr;	
+		if(temp->pt.x%2==0 && temp->pt.y%2==0)
+			nbr = temp;
+		// else scan the WEST nbr node
+		else if(temp->pt.x%2==1 && temp->pt.y%2==0){
+			net = temp->nbr[WEST];
+			na = net->ab[0]; nb = net->ab[1];
+			if(na->name == temp->name) nbr = nb;
+			else	nbr = na;	
+		}
+		// else scan the SOUTH nbr node
+		else if(temp->pt.x%2==0 && temp->pt.y%2==1){
+			net = temp->nbr[SOUTH];
+			na = net->ab[0]; nb = net->ab[1];
+			if(na->name == temp->name) nbr = nb;
+			else	nbr = na;
+		}
+		// else scan the WEST SOUTH nbr node
+		else if(temp->pt.x%2==1 && temp->pt.y%2==1){
+			// first WEST then SOUTH
+			net = temp->nbr[WEST];
+			na = net->ab[0]; nb = net->ab[1];
+			if(na->name == temp->name) nbr = nb;
+			else	nbr = na;
+			
+			Node *temp_1 = nbr;	
+			net = temp_1->nbr[SOUTH];
+			na = net->ab[0]; nb = net->ab[1];
+			if(na->name == temp_1->name) nbr = nb;
+			else	nbr = na;
+		}
+		//clog<<*nbr<<endl;
 		nbr_c = coarse_ckt->get_node(nbr->name);
+		//clog<<"nd_c, nbr_c: "<<*nd_c<<" "<<*nbr_c<<endl;
 		net_coarse = new Net(PAD, 0, nd_c, nbr_c);
 		nd_c->nbr_pad[i] = net_coarse;
-		//clog<<*nd_c->nbr[i]<<endl;
+		//cout<<*nd_c->nbr_pad[i]<<endl;
 	}		
 }
 
@@ -396,5 +430,6 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		ckt->print_matlab();
 		ckt->locate_maxIRdrop();
 		clog<<"max IRdrop is: "<<ckt->max_IRdrop<<endl;
+		// next step is to add SA between fine and coarse grid
 	}
 } 
