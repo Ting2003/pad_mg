@@ -113,7 +113,7 @@ int main(int argc, char * argv[]){
 		//cktlist[i]->print();
 		//cout<<endl;
 		//cktlist[i]->print_power();
-		//cktlist[i]->print_matlab();
+		cktlist[i]->print_matlab();
 		//clog<<(*ckt)<<endl;
 		clog<<endl;
 		// after that, this circuit can be released

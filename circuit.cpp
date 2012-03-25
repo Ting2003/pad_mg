@@ -650,7 +650,6 @@ void Circuit::solve(){
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
 	stamp_rhs_SA(b);
-
 	// use ransac method to get a better init pad assignment
 	//RANSAC_init();
 
@@ -854,6 +853,8 @@ void Circuit::solve_LU(){
 	// build up two VDD pad sets
 	pad_set_init();	
 	solve_LU_core();
+
+	//solve_GS();
 }
 
 // given vector x that obtained from LU, set the value to the corresponding
@@ -2386,4 +2387,61 @@ Node* Circuit::find_max_IRdrop_candi(Node *rm_pad, size_t Limit){
 		  //VDD_candi_flag_visited_temp[i];
 	//VDD_candi_flag_visited_temp.clear();
 	return max_pad;
+}
+
+void Circuit::solve_GS(){
+	double max_diff = 1;
+	int iter = 0;
+	double omega= 2-0.06;
+	Node *max_nd;
+	//clog<<"nodelist.size: "<<nodelist.size()-1<<endl;
+	while(max_diff >1e-8){// && iter < 500){
+		max_diff = 0;
+		for(size_t i=0;i<nodelist.size()-1;i++){
+			Node *nd = nodelist[i];
+			
+			if(nd->isX()==true) continue;
+			double V_old=0;
+			double V_temp = 0;
+			double G = 0;
+			Net *net;
+			Node *nbr, *na, *nb;
+			double sum = 0;
+			net = NULL;
+			nbr = NULL; na = NULL; nb = NULL;
+
+			V_old = nd->value;
+
+			// update nd->value
+			for(int i=0;i<6;i++){
+				net = nd->nbr[i];
+				if(net ==NULL) continue;
+				G = 1.0/net->value;
+				na = net->ab[0]; nb = net->ab[1];
+				if(nd->name == na->name) nbr = nb;
+				else	nbr = na;
+				if(!nbr->is_ground()){
+					sum += G;
+					V_temp += G*nbr->value;
+				}
+			}
+
+			V_temp += -nd->nbr[BOTTOM]->value;//rhs[nd->rid];
+			V_temp /=sum;
+				nd->value = (1-omega)*nd->value + omega * V_temp;
+
+			double diff = fabs(nd->value - V_old);
+			if(diff > max_diff) {
+				max_diff = diff;
+				max_nd = nd;
+			}
+
+			//cout<<"nd, v_old, v_temp, diff: "<<nd->name<<" "<<V_old<<" "<<V_temp<<" "<<diff<<endl;
+		}
+		//cout<<"iter, max_diff: "<<iter<<" "<<max_diff<<endl;
+		//cout<<"update "<<count<<" nodes. "<<endl;
+		//V_improve = fabs(V_ref_old - ref_node->value);
+		iter++;
+	}
+
 }

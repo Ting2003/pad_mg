@@ -144,6 +144,7 @@ public:
 	double penalty(double v, double vworst);
 	void stamp_rhs_SA(double* b);
 	void solve_GS(double *b);
+	void solve_GS();
 	double SA(double *rhs);
 	double SA_modified(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
