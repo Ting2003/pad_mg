@@ -49,6 +49,7 @@ public:
 	friend class Circuit;
 	friend class Block;
 	friend class Parser;
+	friend class MG_Circuit;
 
 	////////////////////////////////////////////////////////////
 	// member variables

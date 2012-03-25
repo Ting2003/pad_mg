@@ -105,7 +105,13 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 	}
 		// build up VDD pads and candi pads
 	set_VDD_pads(ckt, mg_ckt[level]);
+
 	set_VDD_candi_pads(ckt, mg_ckt[level], level);
+	// check map_candi
+	//for(size_t i=0;i<mg_ckt[level]->VDD_candi_set.size();i++){
+		//Node *nd_c = mg_ckt[level]->VDD_candi_set[i];
+		//clog<<"i, nd_c, nd: "<<i<<" "<<*nd_c<<" "<<*map_candi[level][nd_c->name]<<endl;
+	//}
 	// build pad neighboring connections
 	set_pad_nbr_nets(ckt, mg_ckt[level], level);
 }
@@ -274,6 +280,8 @@ void MG_Circuit::set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt){
 		}
 
 		nd_c = coarse_ckt->get_node(nbr->name);
+		nd_c->value = ckt->VDD;
+		nd_c->flag = true;
 		coarse_ckt->VDD_set.push_back(nd_c);
 		//clog<<"push back: "<<*nd_c<<endl;
 	}
@@ -319,6 +327,7 @@ void MG_Circuit::set_VDD_candi_pads(Circuit *ckt, Circuit *&coarse_ckt, int leve
 		}
 
 		nd_c = coarse_ckt->get_node(nbr->name);
+		nd_c->flag_candi = true;
 		coarse_ckt->VDD_candi_set.push_back(nd_c);
 		map_candi[level][nd_c->name] = nd;
 	}
@@ -356,5 +365,36 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 		//clog<<*nd_c->nbr[i]<<endl;
 	}		
 }
-//void MG_Circuit::solve_mg_ckt(Circuit *ckt){
-//} 
+
+// solve from coarse grid into finer one
+void MG_Circuit::solve_mg_ckt(Circuit *ckt){
+	Circuit *ckt_coarse;
+	Node *nd_c, *nd;
+	for(int i=LEVEL-1;i>=0;i--){
+		ckt_coarse = mg_ckt[i];
+		ckt_coarse->VDD = ckt->VDD;
+		ckt_coarse->solve();
+		//ckt_coarse->print_matlab();
+		// after solve coarse, map back into fine grid one
+		// first clear all VDD_set nodes in finer grid
+		for(size_t j=0;j<ckt->VDD_set.size();j++){
+			nd = ckt->VDD_set[j];
+			nd->flag = false;
+			nd->value = 0;		
+		}
+		for(size_t j=0;j<ckt_coarse->VDD_set.size();j++){
+			nd_c = ckt_coarse->VDD_set[j];
+			//clog<<"nd_c: "<<*nd_c<<endl;
+			nd = map_candi[i][nd_c->name];
+			nd->value = nd_c->value;
+			nd->flag = true;
+			ckt->VDD_set[j] = nd;
+			//clog<<"nd: "<<*nd<<endl;
+			//clog<<"nd_c, nd: "<<*nd_c<<" "<<*nd<<endl;
+		}
+		ckt->solve_GS();
+		ckt->print_matlab();
+		ckt->locate_maxIRdrop();
+		clog<<"max IRdrop is: "<<ckt->max_IRdrop<<endl;
+	}
+} 

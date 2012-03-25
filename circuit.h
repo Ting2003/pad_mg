@@ -187,10 +187,10 @@ private:
 	bool solve_pcg();
 	//bool solve_block_pcg();
 
-	
+public:	
 	// initialize things before solve_iteration
 	void solve_init();
-
+private:
 	// updates nodes value in each iteration
 	double solve_iteration();
 	void block_init();
@@ -290,7 +290,7 @@ private:
 	CIRCUIT_TYPE circuit_type;
 
 	NodePtrVector sample;
-
+public:
 	double VDD;
 };
 

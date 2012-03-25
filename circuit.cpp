@@ -189,10 +189,13 @@ void Circuit::locate_maxIRdrop(){
 	max_IRdrop=0;
 	double IRdrop = 0;
 	for(size_t i=0;i<nodelist.size()-1;i++){
-		IRdrop = VDD-nodelist[i]->value;
+		//clog<<"i, value: "<<i<<" "<<*nodelist[i]<<endl;
+		IRdrop = fabs(VDD-nodelist[i]->value);
+		//clog<<"i, cur, max: "<<i<<" "<<IRdrop<<" "<<max_IRdrop<<endl;
 		if(IRdrop>max_IRdrop)
 			max_IRdrop = IRdrop;
 	}
+	//clog<<"max IRdrop "<<max_IRdrop<<endl;
 }
 
 void Circuit::locate_thIRdrop(){
@@ -634,7 +637,11 @@ void Circuit::solve(){
 		//solve_IT();
 	//else
 		solve_LU();
-
+		clog<<"after solve LU. "<<endl;
+	locate_maxIRdrop();
+	//locate_thIRdrop();
+	clog<<"max IR drop is: "<<max_IRdrop<<endl;
+	/*
 	// compute the power consumption
 	// compute_power();
 	locate_maxIRdrop();
@@ -649,16 +656,17 @@ void Circuit::solve(){
 	b = new double [nodelist.size()-1];
 	for(size_t i=0;i<nodelist.size()-1;i++)
 		b[i]=0;
-	stamp_rhs_SA(b);
+	stamp_rhs_SA(b);*/
 	// use ransac method to get a better init pad assignment
-	//RANSAC_init();
+	RANSAC_init();
+	clog<<"after ransac init. "<<endl;
 
 	//Mean_shift_move();
 	// optimized method plus SA
 	//opti_SA(b);
 	//rebuild_voltage_nets();
 	//solve_LU_core();
-	delete [] b;	
+	//delete [] b;	
 }
 
 // restamp current into rhs for SA computation
@@ -849,12 +857,15 @@ void Circuit::solve_LU_core(){
 
 // solve the node voltages using direct LU
 void Circuit::solve_LU(){
-	solve_init();
+	//solve_init();
 	// build up two VDD pad sets
-	pad_set_init();	
-	solve_LU_core();
+	//pad_set_init();
+	//for(size_t i=0;i<VDD_set.size();i++)
+		//clog<<"i, vdd: "<<i<<" "<<*VDD_set[i]<<endl;	
+	//clog<<"after pad set init. "<<endl;
+	//solve_LU_core();
 
-	//solve_GS();
+	solve_GS();
 }
 
 // given vector x that obtained from LU, set the value to the corresponding
@@ -2166,20 +2177,20 @@ void Circuit::RANSAC_init(){
 	best_VDD_set = VDD_set;	
 	double best_maxIRdrop = max_IRdrop;
 	// randomly select p patterns for init distribution
-	for(size_t i=0;i<1000;i++){
+	for(size_t i=0;i<50;i++){
 		// produce one pad assignment
 		random_init_iter();
 
-		//solve_GS(b);
+		solve_GS();
 		// then solve Lu after rebuild matrix
-		rebuild_voltage_nets();
-		solve_LU_core();
+		//rebuild_voltage_nets();
+		//solve_LU_core();
 		locate_maxIRdrop();
 		double current_maxIRdrop = max_IRdrop;
 		if(abs(current_maxIRdrop)<abs(best_maxIRdrop)){
 			best_VDD_set = VDD_set;
 			// set the VDD_set and VDD_candi_set to be current
-			clog<<"accept, current, best: "<<current_maxIRdrop<<" "<<best_maxIRdrop<<endl;
+			clog<<"i, accept, current, best: "<<i<<" "<<current_maxIRdrop<<" "<<best_maxIRdrop<<endl;
 
 			best_maxIRdrop = current_maxIRdrop;
 		}
@@ -2195,8 +2206,9 @@ void Circuit::RANSAC_init(){
 		VDD_set[i]->flag = true;
 		VDD_set[i]->value = VDD;
 	}
-	rebuild_voltage_nets();
-	solve_LU_core();
+	solve_GS();
+	//rebuild_voltage_nets();
+	//solve_LU_core();
 	best_VDD_set.clear();
 }
 
@@ -2438,7 +2450,7 @@ void Circuit::solve_GS(){
 
 			//cout<<"nd, v_old, v_temp, diff: "<<nd->name<<" "<<V_old<<" "<<V_temp<<" "<<diff<<endl;
 		}
-		//cout<<"iter, max_diff: "<<iter<<" "<<max_diff<<endl;
+		//clog<<"iter, max_diff: "<<iter<<" "<<max_diff<<endl;
 		//cout<<"update "<<count<<" nodes. "<<endl;
 		//V_improve = fabs(V_ref_old - ref_node->value);
 		iter++;
