@@ -404,10 +404,11 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Circuit *ckt_coarse;
 	Node *nd_c, *nd;
+	double Frozen_T=0;
 	for(int i=LEVEL-1;i>=0;i--){
 		ckt_coarse = mg_ckt[i];
 		ckt_coarse->VDD = ckt->VDD;
-		ckt_coarse->solve();
+		ckt_coarse->solve(0.001);
 		//ckt_coarse->print_matlab();
 		// after solve coarse, map back into fine grid one
 		// first clear all VDD_set nodes in finer grid
@@ -427,9 +428,14 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 			//clog<<"nd_c, nd: "<<*nd_c<<" "<<*nd<<endl;
 		}
 		ckt->solve_GS();
-		ckt->print_matlab();
 		ckt->locate_maxIRdrop();
 		clog<<"max IRdrop is: "<<ckt->max_IRdrop<<endl;
+		ckt->SA_new(1);
+		//ckt->solve_GS();
+		ckt->locate_maxIRdrop();
+
+		ckt->print_matlab();
+		clog<<"max IRdrop again: "<<ckt->max_IRdrop<<endl;
 		// next step is to add SA between fine and coarse grid
 	}
 } 

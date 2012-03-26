@@ -233,7 +233,7 @@ double Circuit::SACost(){
 }
 
 // simulated annealing
-double Circuit::SA(){	
+double Circuit::SA(double Frozen_T){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
 	double P = 0.5; // initial probability
@@ -255,7 +255,7 @@ double Circuit::SA(){
 	add_pad = NULL;	
 
 	double T = 100; // a initial guess
-	double Frozen_T=0.01;
+	//double Frozen_T=0.001;
 	size_t Movement = 10;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
@@ -292,10 +292,12 @@ double Circuit::SA(){
 			}
 			else{
 				double prob = exp(-change_cost/T);
-				if(acceptProb(prob)==true){					
-					accept_move(nodesUpdate_move,
+				if(acceptProb(prob)==true){								accept_move(nodesUpdate_move,
 					  old_voltages, rm_index, 
 					  add_pad);
+					  //locate_maxIRdrop();
+					  //if(max_IRdrop < prev_maxIRdrop)
+					  //prev_maxIRdrop = max_IRdrop;
 				}else{
 					reject_move(nodesUpdate_move,
 					  rm_pad, add_pad,
@@ -319,7 +321,112 @@ double Circuit::SA(){
 		//printf("the temperature and probablity of accept is %f, %f \n", T, prob);
 
 		T *= T_drop;
-		clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<endl;
+		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<endl;
+		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		if(1.0*Move_num_rejected / Movement >= 0.99) break;
+		iter_T++;
+	}
+
+	//locate_maxIRdrop();
+	//locate_thIRdrop();
+	//double final_cost = SACost();
+	//clog<<"final_cost: "<<max_IRdrop<<endl;
+
+	nodesUpdate_move.clear();
+	delete [] old_voltages;
+	return max_IRdrop;
+}	
+// simulated annealing
+double Circuit::SA_new(double Frozen_T){	
+	//total cost change of all movement at beginning
+	double change_cost_total=0; 
+	double P = 0.5; // initial probability
+	double T_drop = 0.85; // T=T*T_drop
+	// probability to do the movement when cost_change>
+	// 0. exp(-cost_change/ Temperature);
+	
+	// copy the node voltages
+	size_t N = nodelist.size()-1;
+	double *old_voltages; 
+	old_voltages = new double [N];
+	for(size_t i=0;i<N;i++){
+		old_voltages[i] = nodelist[i]->value;
+	}
+	vector<Node *> nodesUpdate_move;
+	Node *rm_pad, *add_pad;
+	size_t rm_index;
+	rm_pad = NULL;
+	add_pad = NULL;	
+
+	double T = 100; // a initial guess
+	//double Frozen_T=0.001;
+	size_t Movement = 10;
+	size_t Move_num_rejected=0;
+	size_t iter_move=1; size_t iter_T = 0;
+	double prev_maxIRdrop = max_IRdrop;
+	double prev_maxIRdrop_T = max_IRdrop;
+
+	double prev_sumIRdrop = locate_maxIRdrop();
+	double cur_sumIRdrop = 0;
+	
+	
+	//clog<<"before starting T iteration."<<endl;
+	while (T > Frozen_T){
+		Move_num_rejected = 0;  
+		for (iter_move=1; iter_move<Movement; iter_move++){
+			// compute one movement
+			one_move(nodesUpdate_move, rm_pad, 
+				add_pad, rm_index, iter_move);
+			cur_sumIRdrop = locate_maxIRdrop();
+			//clog<<"new max: "<<max_IRdrop<<endl;
+			double change_cost = max_IRdrop - prev_maxIRdrop;
+			double change_cost_total = cur_sumIRdrop - 
+				prev_sumIRdrop;
+			//double change_cost = update_cost(
+				//nodesUpdate_move, iter_T, 
+				//change_cost_total, old_voltages);
+			if(change_cost<0 || change_cost_total < 0){
+				//clog<<"accept. "<<max_IRdrop<<" "<<cur_sumIRdrop<<endl;
+				if(change_cost <0)
+					prev_maxIRdrop = max_IRdrop;
+				if(change_cost_total < 0)
+					prev_sumIRdrop = cur_sumIRdrop;
+				accept_move(nodesUpdate_move, 
+				  old_voltages, rm_index, add_pad);
+			}
+			else{
+				//double prob = exp(-change_cost/T);
+				//if(acceptProb(prob)==true){								accept_move(nodesUpdate_move,
+					 // old_voltages, rm_index, 
+					  //add_pad);
+					  //locate_maxIRdrop();
+					  //if(max_IRdrop < prev_maxIRdrop)
+					  //prev_maxIRdrop = max_IRdrop;
+				//}else
+				{
+					reject_move(nodesUpdate_move,
+					  rm_pad, add_pad,
+					  old_voltages);
+					Move_num_rejected++;
+				}
+			}
+			// recompute worst voltage drop
+			//recompute_worst_IRdrop();
+		}
+		//clog<<"change_cost_total: "<<change_cost_total<<endl;
+		/*if(iter_T ==1){//calculate the start temperature
+			if(change_cost_total >= 0)
+				T = -(change_cost_total/Movement)
+					/log(P);
+			else
+				T = (change_cost_total/Movement)
+					/log(P);
+			//printf("the initial temperature is %f \n", T);
+		}//*/
+		//printf("the temperature and probablity of accept is %f, %f \n", T, prob);
+
+		T *= T_drop;
+		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
 		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.9) break;
 		iter_T++;
@@ -334,6 +441,7 @@ double Circuit::SA(){
 	delete [] old_voltages;
 	return max_IRdrop;
 }	
+
 
 // simulated annealing
 double Circuit::SA_modified(double *rhs){	
@@ -647,7 +755,7 @@ void Circuit::find_block_size(){
 	}
 }
 
-void Circuit::solve(){
+void Circuit::solve(double Frozen_T){
 	// getting node voltages
 	//if( MODE == 0 )
 		//solve_IT();
@@ -678,7 +786,15 @@ void Circuit::solve(){
 
 	//Mean_shift_move();
 	// optimized method plus SA
-	opti_SA();
+	optimize_pad_assign_new();
+		
+		locate_maxIRdrop();
+		clog<<endl<<" max_IRdrop: "<<max_IRdrop<<endl;
+		SA(Frozen_T);
+		locate_maxIRdrop();
+		//locate_maxIRdrop();
+		clog<<"max_IRdrop: "<<max_IRdrop<<endl;
+	//opti_SA();
 	//rebuild_voltage_nets();
 	//solve_LU_core();
 	//delete [] b;	
@@ -1895,7 +2011,6 @@ void Circuit::reject_move(vector<Node*>&nodesUpdate_move,
 	rm_pad->flag = true; // rm_pad isX again
 	rm_pad->value = VDD;
 	add_pad->flag = false; //add_pad is not X again
-	add_pad->value = 0;
 }
 
 void Circuit::recompute_worst_IRdrop(){
@@ -2241,10 +2356,10 @@ void Circuit::opti_SA(){
 		
 		locate_maxIRdrop();
 		clog<<endl<<" max_IRdrop: "<<max_IRdrop<<endl;
-		SA();
+		SA(0.01);
 		locate_maxIRdrop();
 		//locate_maxIRdrop();
-		clog<<"max_IRdrop: "<<i<<" "<<max_IRdrop<<endl;	
+		clog<<"max_IRdrop: "<<max_IRdrop<<endl;	
 	}
 }
 

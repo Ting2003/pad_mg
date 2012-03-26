@@ -83,7 +83,7 @@ public:
 	void sort_nodes();
 
 	// solve for node voltage
-	void solve();
+	void solve(double Frozen_T);
 
 	// calculate power consumption for each node
 	void compute_power();
@@ -145,7 +145,8 @@ public:
 	void stamp_rhs_SA(double* b);
 	void solve_GS(double *b);
 	void solve_GS();
-	double SA();
+	double SA(double Frozen_T);
+	double SA_new(double Frozen_T);
 	double SA_modified(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
