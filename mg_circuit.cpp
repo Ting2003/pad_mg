@@ -92,9 +92,10 @@ Circuit * MG_Circuit::build_one_layer_circuit_nodelist(Circuit *ckt){
 void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 	mg_ckt[level] = build_one_layer_circuit_nodelist(ckt);
 	Node *nd, *nd_c;
+	//cout<<endl;
 	//for(size_t i=0;i< mg_ckt[level]->nodelist.size()-1;i++){
 		//cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
-		  //*mg_ckt[level]->nodelist[i]<<endl;	
+		  //*mg_ckt[level]->nodelist[i]<<" "<<mg_ckt[level]->nodelist[i]->pt<<endl;	
 	//}
 	for(size_t i=0;i<mg_ckt[level]->nodelist.size()-1;i++){
 		nd_c = mg_ckt[level]->nodelist[i];
@@ -105,12 +106,12 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 	}
 		// build up VDD pads and candi pads
 	set_VDD_pads(ckt, mg_ckt[level]);
-
 	set_VDD_candi_pads(ckt, mg_ckt[level], level);
 	// check map_candi
 	//for(size_t i=0;i<mg_ckt[level]->VDD_candi_set.size();i++){
 		//Node *nd_c = mg_ckt[level]->VDD_candi_set[i];
-		//clog<<"i, nd_c, nd: "<<i<<" "<<*nd_c<<" "<<*map_candi[level][nd_c->name]<<endl;
+		//cout<<"nd_c, pt: "<<*nd_c<<" "<<nd_c->pt<<endl; 
+		//cout<<"i, nd_c, nd: "<<i<<" "<<*nd_c<<" "<<*map_candi[level][nd_c->name]<<endl;
 	//}
 	// build pad neighboring connections
 	set_pad_nbr_nets(ckt, mg_ckt[level], level);
@@ -232,12 +233,12 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 	if(nbr_yc != NULL)
 		nbr_yc->nbr[SOUTH] = nd_c->nbr[NORTH];//coarse_net_y;
 	
-	//if(nd_c->nbr[EAST] != NULL)
-		//clog<<"new net_x: "<<*nd_c->nbr[EAST]<<endl;
-	//if(nd_c->nbr[NORTH] != NULL)
-		//clog<<"new net_y: "<<*nd_c->nbr[NORTH]<<endl;
-	//if(nd_c->nbr[BOTTOM]!=NULL)
-		//clog<<"new current: "<<*nd_c->nbr[BOTTOM]<<endl;
+	/*if(nd_c->nbr[EAST] != NULL)
+		cout<<"new net_x: "<<*nd_c->nbr[EAST]<<endl;
+	if(nd_c->nbr[NORTH] != NULL)
+		cout<<"new net_y: "<<*nd_c->nbr[NORTH]<<endl;
+	if(nd_c->nbr[BOTTOM]!=NULL)
+		cout<<"new current: "<<*nd_c->nbr[BOTTOM]<<endl;*/
 }
 
 // set VDD_set and VDD_candi_set
@@ -409,12 +410,13 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	for(int i=LEVEL-1;i>=0;i--){
 		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
 		ckt_coarse = mg_ckt[i];
-		ckt_coarse->VDD = ckt_finer->VDD;
+		ckt_coarse->VDD = ckt->VDD;
 		// only perform ransac and opti to coarest level
-		if(i== LEVEL-1){
-			ckt_coarse->solve_coarse(0.001);	
-		}
-		else	ckt_coarse->solve(0.001);
+		//if(i== LEVEL-1){
+			//ckt_coarse->solve_coarse(0.001);	
+		//}
+		//else	
+			ckt_coarse->solve(0.001);
 
 		if(i>=1) ckt_finer = mg_ckt[i-1];
 		else	ckt_finer = ckt;
@@ -434,7 +436,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 			ckt_finer->VDD_set[j] = nd;
 		}
 		if(i>=1) mg_ckt[i-1] = ckt_finer;
-		else ckt = ckt_finer;
+		else ckt = ckt_finer;	
 	}
 	// finest level
 	clog<<endl<<"====> solve finest level ckt <===="<<endl;

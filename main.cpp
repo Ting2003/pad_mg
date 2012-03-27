@@ -107,7 +107,7 @@ int main(int argc, char * argv[]){
 		//ckt->solve();
 		clog<<"start mg. "<<endl;
 		MG_Circuit mg_ckt;
-		mg_ckt.build_mg_ckt(ckt, 1);
+		mg_ckt.build_mg_ckt(ckt, 2);
 		mg_ckt.solve_mg_ckt(ckt);
 		// DEBUG: output each circuit to separate file
 		//char ofname[MAX_BUF];

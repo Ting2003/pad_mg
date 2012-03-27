@@ -322,7 +322,7 @@ double Circuit::SA(double Frozen_T){
 
 		T *= T_drop;
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<endl;
-		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		//clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.99) break;
 		iter_T++;
 	}
@@ -427,7 +427,7 @@ double Circuit::SA_new(double Frozen_T){
 
 		T *= T_drop;
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
-		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		//clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.9) break;
 		iter_T++;
 	}
@@ -755,6 +755,25 @@ void Circuit::find_block_size(){
 	}
 }
 
+void Circuit::solve_coarse(double Frozen_T){
+	solve_LU();
+	locate_maxIRdrop();
+	clog<<"initial max_IRdrop is: 		 "<<max_IRdrop<<endl;
+	
+	//RANSAC_init();
+	//locate_maxIRdrop();
+	//clog<<"max_IRdrop after ransac init:	 "<<max_IRdrop<<endl;
+
+	// optimized method plus SA
+	optimize_pad_assign_new();
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after opti:		 "<<max_IRdrop<<endl;
+	
+	SA(Frozen_T);
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after SA  :		 "<<max_IRdrop<<endl;
+}
+
 void Circuit::solve(double Frozen_T){
 	// getting node voltages
 	//if( MODE == 0 )
@@ -763,41 +782,21 @@ void Circuit::solve(double Frozen_T){
 		solve_LU();
 	locate_maxIRdrop();
 	//locate_thIRdrop();
-	clog<<"max IR drop is: "<<max_IRdrop<<endl;
-	/*
-	// compute the power consumption
-	// compute_power();
-	locate_maxIRdrop();
-	locate_thIRdrop();
-	// build initial critical nodes list
-	//build_criticalNodes();
-	double cost = 0;
-	cost = SACost();
-	clog<<"cost is: "<<cost<<endl;
-
-	double *b;
-	b = new double [nodelist.size()-1];
-	for(size_t i=0;i<nodelist.size()-1;i++)
-		b[i]=0;
-	stamp_rhs_SA(b);*/
+	clog<<"initial max_IRdrop is: 	"<<max_IRdrop<<endl;
 	// use ransac method to get a better init pad assignment
-	//RANSAC_init();
-	clog<<"after ransac init. "<<endl;
+	/*RANSAC_init();
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after ransac init:	 "<<max_IRdrop<<endl;
 
 	//Mean_shift_move();
 	// optimized method plus SA
 	optimize_pad_assign_new();
-		
-		locate_maxIRdrop();
-		clog<<endl<<" max_IRdrop: "<<max_IRdrop<<endl;
-		SA(Frozen_T);
-		locate_maxIRdrop();
-		//locate_maxIRdrop();
-		clog<<"max_IRdrop: "<<max_IRdrop<<endl;
-	//opti_SA();
-	//rebuild_voltage_nets();
-	//solve_LU_core();
-	//delete [] b;	
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after opti:	"<<max_IRdrop<<endl;
+	*/
+	SA(Frozen_T);
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;	
 }
 
 // restamp current into rhs for SA computation
@@ -2109,7 +2108,7 @@ double Circuit::optimize_pad_assign_new(){
 		   	add_pad->name == prev_rm_pad->name))
 			// for untouched pads flag_visited != 0
 			break;
-		clog<<"rm_pad, add_pad: "<<*rm_pad<<" "<<*add_pad<<endl;	
+		//clog<<"rm_pad, add_pad: "<<*rm_pad<<" "<<*add_pad<<endl;	
 		prev_rm_pad = rm_pad;
 		prev_add_pad = add_pad;
 		
@@ -2326,7 +2325,7 @@ void Circuit::RANSAC_init(){
 		if(abs(current_maxIRdrop)<abs(best_maxIRdrop)){
 			best_VDD_set = VDD_set;
 			// set the VDD_set and VDD_candi_set to be current
-			clog<<"i, accept, current, best: "<<i<<" "<<current_maxIRdrop<<" "<<best_maxIRdrop<<endl;
+			//clog<<"i, accept, current, best: "<<i<<" "<<current_maxIRdrop<<" "<<best_maxIRdrop<<endl;
 
 			best_maxIRdrop = current_maxIRdrop;
 		}
