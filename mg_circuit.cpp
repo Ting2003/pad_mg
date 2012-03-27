@@ -407,10 +407,15 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Node *nd_c, *nd;
 	double Frozen_T=0;
 	for(int i=LEVEL-1;i>=0;i--){
-		clog<<"i: "<<i<<endl;
+		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
 		ckt_coarse = mg_ckt[i];
 		ckt_coarse->VDD = ckt_finer->VDD;
-		ckt_coarse->solve(0.001);
+		// only perform ransac and opti to coarest level
+		if(i== LEVEL-1){
+			ckt_coarse->solve_coarse(0.001);	
+		}
+		else	ckt_coarse->solve(0.001);
+
 		if(i>=1) ckt_finer = mg_ckt[i-1];
 		else	ckt_finer = ckt;
 		//ckt_coarse->print_matlab();
@@ -423,26 +428,23 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		}
 		for(size_t j=0;j<ckt_coarse->VDD_set.size();j++){
 			nd_c = ckt_coarse->VDD_set[j];
-			//clog<<"nd_c: "<<*nd_c<<endl;
 			nd = map_candi[i][nd_c->name];
 			nd->value = nd_c->value;
 			nd->flag = true;
 			ckt_finer->VDD_set[j] = nd;
-			//clog<<"nd: "<<*nd<<endl;
-			//clog<<"nd_c, nd: "<<*nd_c<<" "<<*nd<<endl;
 		}
 		if(i>=1) mg_ckt[i-1] = ckt_finer;
 		else ckt = ckt_finer;
 	}
-	// finerest level
+	// finest level
+	clog<<endl<<"====> solve finest level ckt <===="<<endl;
 	ckt->solve_GS();
 	ckt->locate_maxIRdrop();
-	clog<<"max IRdrop is: "<<ckt->max_IRdrop<<endl;
+	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
 	ckt->SA_new(1);
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 
 	ckt->print_matlab();
-	clog<<"max IRdrop again: "<<ckt->max_IRdrop<<endl;
-	// next step is to add SA between fine and coarse grid
+	clog<<"max IRdrop after SA: 		"<<ckt->max_IRdrop<<endl;
 } 

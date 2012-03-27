@@ -84,7 +84,7 @@ public:
 
 	// solve for node voltage
 	void solve(double Frozen_T);
-
+	void solve_coarse(double Frozen_T);
 	// calculate power consumption for each node
 	void compute_power();
 	
