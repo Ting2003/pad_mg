@@ -765,9 +765,9 @@ void Circuit::solve_coarse(double Frozen_T){
 	//clog<<"max_IRdrop after ransac init:	 "<<max_IRdrop<<endl;
 
 	// optimized method plus SA
-	optimize_pad_assign_new();
-	locate_maxIRdrop();
-	clog<<"max_IRdrop after opti:		 "<<max_IRdrop<<endl;
+	//optimize_pad_assign_new();
+	//locate_maxIRdrop();
+	//clog<<"max_IRdrop after opti:		 "<<max_IRdrop<<endl;
 	
 	SA(Frozen_T);
 	locate_maxIRdrop();
@@ -794,7 +794,7 @@ void Circuit::solve(double Frozen_T){
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after opti:	"<<max_IRdrop<<endl;
 	*/
-	SA(Frozen_T);
+	SA_new(Frozen_T);
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;	
 }

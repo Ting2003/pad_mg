@@ -407,16 +407,19 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Circuit *ckt_finer;
 	Node *nd_c, *nd;
 	double Frozen_T=0;
+	int temp = 1;
 	for(int i=LEVEL-1;i>=0;i--){
 		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
 		ckt_coarse = mg_ckt[i];
 		ckt_coarse->VDD = ckt->VDD;
 		// only perform ransac and opti to coarest level
-		//if(i== LEVEL-1){
-			//ckt_coarse->solve_coarse(0.001);	
-		//}
-		//else	
-			ckt_coarse->solve(0.001);
+		if(i== LEVEL-1){
+			ckt_coarse->solve_coarse(0.0001);	
+		}
+		else{
+			ckt_coarse->solve(0.0001*temp);
+			temp *= 10;	
+		}
 
 		if(i>=1) ckt_finer = mg_ckt[i-1];
 		else	ckt_finer = ckt;
