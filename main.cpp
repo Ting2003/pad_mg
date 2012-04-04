@@ -104,7 +104,7 @@ int main(int argc, char * argv[]){
 		clog<<"Solving "<<ckt->get_name()<<endl;
 		ckt->solve_init();
 		ckt->pad_set_init();
-		//ckt->solve();
+		//ckt->solve_LU_core();
 		clog<<"start mg. "<<endl;
 		MG_Circuit mg_ckt;
 		mg_ckt.build_mg_ckt(ckt, 2);

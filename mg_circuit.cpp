@@ -208,6 +208,7 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		if(nbr_xc != NULL){
 			coarse_net_x = new Net(RESISTOR, value_x, 
 				nd_c, nbr_xc);
+			coarse_ckt->add_net(coarse_net_x);
 		}
 	}
 	if(nbr_y != NULL){
@@ -215,12 +216,14 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 		if(nbr_yc != NULL){
 			coarse_net_y = new Net(RESISTOR, value_y, 
 				nd_c, nbr_yc);
+			coarse_ckt->add_net(coarse_net_y);
 		}
 	}
 	if(current != 0){
 		Node *Ground = coarse_ckt->nodelist[
 			coarse_ckt->nodelist.size()-1];
 		coarse_net_current = new Net(CURRENT, current, nd_c, Ground);
+		coarse_ckt->add_net(coarse_net_current);
 	}
 	// assign these nets into nodes->nbr
 	// nbr_x, nbr_y  is nd's nbrs in coarse grid
@@ -245,7 +248,7 @@ void MG_Circuit:: set_nbr_nets(Node *nd, Node *&nd_c, Circuit *ckt,
 void MG_Circuit::set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt){
 	coarse_ckt->VDD_set.clear();
 	Node *nd, *nd_c;
-	Net *net;
+	Net *net, *net_voltage;
 	Node *na, *nb, *nbr;
 	for(size_t i=0;i<ckt->VDD_set.size();i++){
 		nd = ckt->VDD_set[i];
@@ -284,6 +287,9 @@ void MG_Circuit::set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt){
 		nd_c->value = ckt->VDD;
 		nd_c->flag = true;
 		coarse_ckt->VDD_set.push_back(nd_c);
+		Node *ground = coarse_ckt->nodelist[coarse_ckt->nodelist.size()-1];
+		net_voltage = new Net(VOLTAGE, ckt->VDD, nd_c, ground);
+		coarse_ckt->add_net(net_voltage);
 		//clog<<"push back: "<<*nd_c<<endl;
 	}
 }

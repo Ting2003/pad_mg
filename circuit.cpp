@@ -993,7 +993,7 @@ void Circuit::solve_LU(){
 	//for(size_t i=0;i<VDD_set.size();i++)
 		//clog<<"i, vdd: "<<i<<" "<<*VDD_set[i]<<endl;	
 	//clog<<"after pad set init. "<<endl;
-	//solve_LU_core();
+	solve_LU_core();
 
 	solve_GS();
 }
