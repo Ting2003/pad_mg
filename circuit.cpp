@@ -190,7 +190,6 @@ double Circuit::locate_maxIRdrop(){
 	double IRdrop = 0;
 	double sum = 0;
 	for(size_t i=0;i<nodelist.size()-1;i++){
-		//clog<<"i, value: "<<i<<" "<<*nodelist[i]<<endl;
 		IRdrop = fabs(VDD-nodelist[i]->value);
 		sum += IRdrop;
 		//clog<<"i, cur, max: "<<i<<" "<<IRdrop<<" "<<max_IRdrop<<endl;
@@ -970,6 +969,7 @@ void Circuit::solve_LU_core(){
 	bp = static_cast<double *> (b->x);
 	Matrix A;
 	stamp_by_set(A, bp);
+	//cout<<A<<endl;
 	make_A_symmetric(A, bp);
 	//A.merge();
 
@@ -977,9 +977,11 @@ void Circuit::solve_LU_core(){
 	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem);
 	
 	xp = static_cast<double *> (x->x);
+
 	// Vec b contains result, copy it back to nodelist
 	get_voltages_from_LU_sol(xp);
 	get_vol_mergelist();
+
 	cholmod_free_dense(&x, cm);
 	cholmod_free_dense(&b, cm);
 	cholmod_finish(&c);
@@ -995,7 +997,7 @@ void Circuit::solve_LU(){
 	//clog<<"after pad set init. "<<endl;
 	solve_LU_core();
 
-	solve_GS();
+	//solve_GS();
 }
 
 // given vector x that obtained from LU, set the value to the corresponding
@@ -1182,20 +1184,24 @@ void Circuit::copy_node_voltages_block(bool from){
 // *NOTE* at the same time insert the net into boundary netlist
 void Circuit::stamp_by_set(Matrix & A, double* b){
 	for(int type=0;type<NUM_NET_TYPE;type++){
+		//clog<<"type: "<<type<<endl;
 		NetList & ns = net_set[type];
 		NetList::iterator it;
 		switch(type){
 		case RESISTOR:
 			for(it=ns.begin();it!=ns.end();++it){
 				if( (*it) == NULL ) continue;
+				//clog<<"res: "<<*(*it)<<endl;
 				assert( fzero((*it)->value) == false );
 				stamp_resistor(A, (*it));
 				//block_boundary_insert_net(ns[i]);
 			}
 			break;
 		case CURRENT:
-			for(it=ns.begin();it!=ns.end();++it)
+			for(it=ns.begin();it!=ns.end();++it){
+				//clog<<"cur: "<<*(*it)<<endl;
 				stamp_current(b, (*it));
+			}
 			break;
 		case VOLTAGE:
 			for(it=ns.begin();it!=ns.end();++it){
@@ -1204,6 +1210,7 @@ void Circuit::stamp_by_set(Matrix & A, double* b){
 				    !(*it)->ab[1]->is_ground() ){
 					continue; // it's a 0v via
 				}
+				//clog<<"vol: "<<*(*it)<<endl;
 				stamp_VDD(A, b, (*it));
 			}
 			break;

@@ -20,7 +20,7 @@ Node::Node(string n, Point _pt, bool x, double v):
 	name(n), pt(_pt), rid(0), 
 	value(v), flag(x),flag_visited(0), 
 	flag_candi(false), critical(false),
-	rep(NULL) {
+	rep(this) {
 	for(int i=0;i<6;i++) this->nbr[i] = NULL;
 	for(int i=0;i<4;i++){
 		this->nbr_pad[i] = NULL;

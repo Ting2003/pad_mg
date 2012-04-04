@@ -105,6 +105,7 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 		set_nbr_nets(nd, nd_c, ckt, mg_ckt[level]);
 	}
 		// build up VDD pads and candi pads
+	mg_ckt[level]->VDD = ckt->VDD;
 	set_VDD_pads(ckt, mg_ckt[level]);
 	set_VDD_candi_pads(ckt, mg_ckt[level], level);
 	// check map_candi
@@ -414,12 +415,25 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Node *nd_c, *nd;
 	double Frozen_T=0;
 	int temp = 1;
+
+	/*mg_ckt[LEVEL-1]->solve_init();
+	mg_ckt[LEVEL-1]->solve_LU();
+
+	for(size_t i=0;i<mg_ckt[LEVEL-1]->nodelist.size()-1;i++)
+		cout<<"i, xp: "<<i<<" "<<*mg_ckt[LEVEL-1]->nodelist[i]<<endl;
+	mg_ckt[LEVEL-1]->locate_maxIRdrop();
+	clog<<"initial mapped max IRdrop is: 	"<<mg_ckt[LEVEL-1]->max_IRdrop<<endl;
+
+	mg_ckt[LEVEL-1]->print_matlab();
+	return;*/
 	for(int i=LEVEL-1;i>=0;i--){
 		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
 		ckt_coarse = mg_ckt[i];
-		ckt_coarse->VDD = ckt->VDD;
+		ckt_coarse->solve_init();
+		//ckt_coarse->VDD = ckt->VDD;
 		// only perform ransac and opti to coarest level
 		if(i== LEVEL-1){
+			//ckt_coarse->VDD = 0;
 			ckt_coarse->solve_coarse(0.0001);	
 		}
 		else{

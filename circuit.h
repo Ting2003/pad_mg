@@ -177,10 +177,11 @@ public:
 	cholmod_common c, *cm;
 	size_t peak_mem;
 	size_t CK_mem;
-private:
+
 	// member functions
 	void solve_LU();
 	void solve_LU_core();
+private:
 
 	bool solve_IT();
 	void solve_block_LU();
