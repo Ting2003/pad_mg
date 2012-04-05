@@ -415,17 +415,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Node *nd_c, *nd;
 	double Frozen_T=0;
 	int temp = 1;
-
-	/*mg_ckt[LEVEL-1]->solve_init();
-	mg_ckt[LEVEL-1]->solve_LU();
-
-	for(size_t i=0;i<mg_ckt[LEVEL-1]->nodelist.size()-1;i++)
-		cout<<"i, xp: "<<i<<" "<<*mg_ckt[LEVEL-1]->nodelist[i]<<endl;
-	mg_ckt[LEVEL-1]->locate_maxIRdrop();
-	clog<<"initial mapped max IRdrop is: 	"<<mg_ckt[LEVEL-1]->max_IRdrop<<endl;
-
-	mg_ckt[LEVEL-1]->print_matlab();
-	return;*/
+	
 	for(int i=LEVEL-1;i>=0;i--){
 		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
 		ckt_coarse = mg_ckt[i];
@@ -475,8 +465,8 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	//ckt->solve_init();
 	//for(size_t i=0;i<ckt->net_set[VOLTAGE].size();i++)
 		//clog<<i<<" VDD: "<<*ckt->net_set[VOLTAGE][i]<<endl;
-	//ckt->solve_LU();
-	ckt->solve_GS();
+	ckt->solve_LU();
+	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
 	ckt->SA_new(1);
