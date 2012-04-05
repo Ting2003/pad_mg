@@ -115,6 +115,8 @@ public:
 	double optimize_pad_assign_new();
 	void clear_candi_visit();
 	void rebuild_voltage_nets();
+	size_t rebuild_voltage_nets_one_move(Node *rm_node, 
+		Node *add_node, Net *&rm_net, Net *&add_net);
 
 	// output the format for matlab, to plot the 
 	// distribution figure;
@@ -158,6 +160,10 @@ public:
 		int iter_move, double *rhs);
 	void one_move(vector<Node*>&nodesUpdate_move,
 	  Node *&rm_pad, Node *&add_pad, 
+	  size_t &rm_pad_index, size_t iter_move,
+	  Net *&rm_net, Net *&add_net, size_t &index_rm_net);
+	void one_move_new(vector<Node*>&nodesUpdate_move,
+	  Node *&rm_pad, Node *&add_pad, 
 	  size_t &rm_pad_index, size_t iter_move);
 	void one_move_modified(vector<Node*>&nodesUpdate_move,
 	  double *rhs, Node *&rm_pad, Node *&add_pad,  
@@ -168,8 +174,14 @@ public:
 	double update_cost_modified(vector<Node*> &nodesUpdate_move, double *old_voltages);
 	void accept_move(vector<Node*>&nodesUpdate_move, 
 		double *new_voltages, size_t rm_index,
+		Node *add_pad, Net *&rm_net);
+	void accept_move_new(vector<Node*>&nodesUpdate_move, 
+		double *new_voltages, size_t rm_index,
 		Node *add_pad);
 	void reject_move(vector<Node*>&nodesUpdate_move, 
+		Node *rm_pad, Node *add_pad, double *new_voltages,
+		Net *&rm_net, Net *&add_net, size_t index_rm_net);
+	void reject_move_new(vector<Node*>&nodesUpdate_move, 
 		Node *rm_pad, Node *add_pad, double *new_voltages);
 	void recompute_worst_IRdrop();
 	////////////////// end of function for Pad relocation ////
@@ -263,7 +275,9 @@ public:
 private:
 	NodePtrVector replist;		// a set of representative nodes
 	NodePtrVector mergelist;	// nodes for merging
+public:
 	NetList net_set[NUM_NET_TYPE];// should be the same as size of NET_TYPE
+private:
 	// defines the net direction in layers
 	static vector<LAYER_DIR> layer_dir;
 	vector<int> layers;

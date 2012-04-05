@@ -464,11 +464,18 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 			// then rebuild voltage nets
 			mg_ckt[i-1]->rebuild_voltage_nets();
 		}
-		else ckt = ckt_finer;
+		else{
+			ckt = ckt_finer;
+			ckt->rebuild_voltage_nets();
+		}
 
 	}
 	// finest level
 	clog<<endl<<"====> solve finest level ckt <===="<<endl;
+	//ckt->solve_init();
+	//for(size_t i=0;i<ckt->net_set[VOLTAGE].size();i++)
+		//clog<<i<<" VDD: "<<*ckt->net_set[VOLTAGE][i]<<endl;
+	//ckt->solve_LU();
 	ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
