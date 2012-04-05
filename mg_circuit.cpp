@@ -458,8 +458,14 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 			nd->flag = true;
 			ckt_finer->VDD_set[j] = nd;
 		}
-		if(i>=1) mg_ckt[i-1] = ckt_finer;
-		else ckt = ckt_finer;	
+		if(i>=1){
+			 mg_ckt[i-1] = ckt_finer;
+			 
+			// then rebuild voltage nets
+			mg_ckt[i-1]->rebuild_voltage_nets();
+		}
+		else ckt = ckt_finer;
+
 	}
 	// finest level
 	clog<<endl<<"====> solve finest level ckt <===="<<endl;
