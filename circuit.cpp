@@ -426,8 +426,8 @@ double Circuit::SA_new(double Frozen_T){
 		//printf("the temperature and probablity of accept is %f, %f \n", T, prob);
 
 		T *= T_drop;
-		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
-		//clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
+		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.9) break;
 		iter_T++;
 	}
