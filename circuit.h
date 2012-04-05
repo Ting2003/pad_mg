@@ -150,6 +150,7 @@ public:
 	double SA(double Frozen_T);
 	double SA_new(double Frozen_T, bool flag);
 	double SA_modified(double *rhs);
+	Node *find_VDD_spot(Node * nd);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);
 	void update_queue_optimize(queue<Node*> &q, Node *nd, size_t iter);

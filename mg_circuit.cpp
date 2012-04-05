@@ -23,10 +23,7 @@ void MG_Circuit::build_mg_ckt(Circuit *ckt, int layer){
 	map_candi.resize(LEVEL);
 	stringstream ss;
 	string name;
-	for(int i=0;i<LEVEL;i++){
-		//ss << i;
-		//name = ss.str();
-		//mg_ckt[i] = new Circuit(name);
+	for(int i=0;i<LEVEL;i++){	
 		if(i==0){
 			//clog<<"start build mg_ckt[0]. "<<endl;
 			build_one_layer_circuit(ckt, i);
@@ -284,7 +281,10 @@ void MG_Circuit::set_VDD_pads(Circuit *ckt, Circuit *&coarse_ckt){
 			else	nbr = na;
 		}
 
-		nd_c = coarse_ckt->get_node(nbr->name);
+		//nd_c = coarse_ckt->get_node(nbr->name);
+		// if this spot is occupied by VDD pad, use breath first
+		// search to find spot for it
+		nd_c = coarse_ckt->find_VDD_spot(nbr);
 		nd_c->value = ckt->VDD;
 		nd_c->flag = true;
 		coarse_ckt->VDD_set.push_back(nd_c);

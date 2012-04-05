@@ -2713,13 +2713,54 @@ void Circuit::solve_GS(){
 				max_diff = diff;
 				max_nd = nd;
 			}
-
-			//cout<<"nd, v_old, v_temp, diff: "<<nd->name<<" "<<V_old<<" "<<V_temp<<" "<<diff<<endl;
 		}
-		//clog<<"iter, max_diff: "<<iter<<" "<<max_diff<<endl;
-		//cout<<"update "<<count<<" nodes. "<<endl;
-		//V_improve = fabs(V_ref_old - ref_node->value);
 		iter++;
 	}
+}
 
+// in coarse grid, find corresponding node for nd in fine grid
+// if a coarse spot is occupied, locate a pad in its nbr area
+Node *Circuit::find_VDD_spot(Node * nd){
+	Node *nd_c, *nd_c_new;
+	Net *net;
+	Node *na, *nb, *nbr;
+	bool cut_flag = false;
+
+	nd_c = get_node(nd->name);
+	// nd_c is not occupied by a VDD pad
+	if(nd_c->flag == false)
+		return nd_c;
+	
+	// if this spot is occupied by VDD pad, use breath first
+	// search to find spot for it
+	queue<Node *> VDD_queue;
+	VDD_queue.push(nd);
+	while(!VDD_queue.empty()){
+		nd = VDD_queue.front();
+		VDD_queue.pop();
+		for(size_t i=0;i<6;i++){
+			net = nd->nbr[i];
+			if(net==NULL) continue;
+			na = net->ab[0];
+			nb = net->ab[1];
+			if(na->name == nd->name && !nb->is_ground()){
+				if(nb->flag == false){
+					nd_c_new = nb;
+					cut_flag = true;
+					break;
+				}
+				VDD_queue.push(nb);
+			}
+			else if(nb->name == nd->name && !na->is_ground()){
+				if(na->flag == false){
+					nd_c_new = na;
+					cut_flag = true;
+					break;
+				}
+				VDD_queue.push(na);
+			}
+		}
+		if(cut_flag == true) break;
+	}
+	return nd_c_new;
 }
