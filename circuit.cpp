@@ -381,9 +381,9 @@ double Circuit::SA_new(double Frozen_T){
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<Movement; iter_move++){
 			// compute one movement
-			one_move_new(nodesUpdate_move, rm_pad, 
-				add_pad, rm_index, iter_move);//,
-				//rm_net, add_net, index_rm_net);
+			one_move(nodesUpdate_move, rm_pad, 
+				add_pad, rm_index, iter_move,
+				rm_net, add_net, index_rm_net);
 			cur_sumIRdrop = locate_maxIRdrop();
 			//clog<<"new max: "<<max_IRdrop<<endl;
 			double change_cost = max_IRdrop - prev_maxIRdrop;
@@ -398,16 +398,16 @@ double Circuit::SA_new(double Frozen_T){
 					prev_maxIRdrop = max_IRdrop;
 				if(change_cost_total < 0)
 					prev_sumIRdrop = cur_sumIRdrop;
-				accept_move_new(nodesUpdate_move, 
-				  old_voltages, rm_index, add_pad);//,
-				  //rm_net);
+				accept_move(nodesUpdate_move, 
+				  old_voltages, rm_index, add_pad,
+				  rm_net);
 			}
 			else{	
 				{
-					reject_move_new(nodesUpdate_move,
+					reject_move(nodesUpdate_move,
 					  rm_pad, add_pad,
-					  old_voltages);//, rm_net, add_net,
-					  //index_rm_net);
+					  old_voltages, rm_net, add_net,
+					  index_rm_net);
 					Move_num_rejected++;
 				}
 			}
