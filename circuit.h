@@ -148,7 +148,7 @@ public:
 	void solve_GS(double *b);
 	void solve_GS();
 	double SA(double Frozen_T);
-	double SA_new(double Frozen_T);
+	double SA_new(double Frozen_T, bool flag);
 	double SA_modified(double *rhs);
 	void form_nbr_pads(Node *rm_pad, vector<Node*>&nbr_pads);
 	void update_queue(CircularQueue &q, Node *nd, size_t iter);

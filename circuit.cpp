@@ -341,7 +341,7 @@ double Circuit::SA(double Frozen_T){
 	return max_IRdrop;
 }	
 // simulated annealing
-double Circuit::SA_new(double Frozen_T){	
+double Circuit::SA_new(double Frozen_T, bool flag){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
 	double P = 0.5; // initial probability
@@ -374,7 +374,12 @@ double Circuit::SA_new(double Frozen_T){
 	double cur_sumIRdrop = 0;
 	
 	size_t index_rm_net;	
-	Net *rm_net, *add_net;	
+	Net *rm_net, *add_net;
+	bool flag_gain = false;
+	double prob = 0;
+	if(flag == true) prob = 0.9;
+	else if(flag ==  false) prob= 0.99;
+	//clog<<"prob: "<<prob<<endl;	
 	
 	//clog<<"before starting T iteration."<<endl;
 	while (T > Frozen_T){
@@ -392,7 +397,10 @@ double Circuit::SA_new(double Frozen_T){
 			//double change_cost = update_cost(
 				//nodesUpdate_move, iter_T, 
 				//change_cost_total, old_voltages);
-			if(change_cost<0 || change_cost_total < 0){
+			if(flag == true && change_cost<0) flag_gain = true;
+			else if(change_cost<0 && change_cost_total<0)
+				flag_gain = true;
+			if(flag_gain == true){
 				//clog<<"accept. "<<max_IRdrop<<" "<<cur_sumIRdrop<<endl;
 				if(change_cost <0)
 					prev_maxIRdrop = max_IRdrop;
@@ -401,23 +409,21 @@ double Circuit::SA_new(double Frozen_T){
 				accept_move(nodesUpdate_move, 
 				  old_voltages, rm_index, add_pad,
 				  rm_net);
+				flag_gain = false;
 			}
 			else{	
-				{
-					reject_move(nodesUpdate_move,
-					  rm_pad, add_pad,
-					  old_voltages, rm_net, add_net,
-					  index_rm_net);
-					Move_num_rejected++;
-				}
+				reject_move(nodesUpdate_move,
+						rm_pad, add_pad,
+						old_voltages, rm_net, add_net,
+						index_rm_net);
+				Move_num_rejected++;
+				//clog<<"rejected: "<<Move_num_rejected<<endl;
 			}
-			// recompute worst voltage drop
-			//recompute_worst_IRdrop();
 		}
 		T *= T_drop;
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
-		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
-		if(1.0*Move_num_rejected / Movement >= 0.9) break;
+		//clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		if(1.0*Move_num_rejected / Movement >= prob) break;
 		iter_T++;
 	}
 
@@ -574,10 +580,10 @@ void Circuit::solve_init(){
 	size_t n_nodes = nodelist.size();
 	size_t n_reps  = replist.size();
 	double ratio = n_merge / (double) (n_merge + n_reps);
-	clog<<"mergeable  "<<n_merge<<endl;
-	clog<<"replist    "<<n_reps <<endl;
+	//clog<<"mergeable  "<<n_merge<<endl;
+	//clog<<"replist    "<<n_reps <<endl;
 	clog<<"nodelist   "<<n_nodes<<endl;
-	clog<<"ratio =    "<<ratio  <<endl;
+	//clog<<"ratio =    "<<ratio  <<endl;
 
 	net_id.clear();
 	net_id_pad.clear();
@@ -780,7 +786,7 @@ void Circuit::solve(double Frozen_T){
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after opti:	"<<max_IRdrop<<endl;
 	*/
-	SA_new(Frozen_T);
+	SA_new(Frozen_T, false);
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;	
 }

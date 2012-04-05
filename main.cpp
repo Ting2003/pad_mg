@@ -104,8 +104,9 @@ int main(int argc, char * argv[]){
 		clog<<"Solving "<<ckt->get_name()<<endl;
 		ckt->solve_init();
 		ckt->pad_set_init();
-		//ckt->solve_LU_core();
-		clog<<"start mg. "<<endl;
+		ckt->solve_LU_core();
+		ckt->locate_maxIRdrop();
+		clog<<"====== origin max_IRdrop is: "<<ckt->max_IRdrop<<" ======== "<<endl;
 		MG_Circuit mg_ckt;
 		mg_ckt.build_mg_ckt(ckt, 2);
 		mg_ckt.solve_mg_ckt(ckt);
@@ -118,6 +119,7 @@ int main(int argc, char * argv[]){
 		//cktlist[i]->print_power();
 		//cktlist[i]->print_matlab();
 		//clog<<(*ckt)<<endl;
+		clog<<endl<<"=====final max_IRdrop is: "<<ckt->max_IRdrop<<" ======"<<endl;
 		clog<<endl;
 		// after that, this circuit can be released
 		delete ckt;
