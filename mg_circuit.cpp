@@ -335,9 +335,13 @@ void MG_Circuit::set_VDD_candi_pads(Circuit *ckt, Circuit *&coarse_ckt, int leve
 		}
 
 		nd_c = coarse_ckt->get_node(nbr->name);
-		nd_c->flag_candi = true;
-		coarse_ckt->VDD_candi_set.push_back(nd_c);
-		map_candi[level][nd_c->name] = nd;
+		// if this spot is not occupied by a candi, then assign
+		// to it, else skip
+		if(nd_c->flag_candi == false){
+			coarse_ckt->VDD_candi_set.push_back(nd_c);
+			nd_c->flag_candi = true;
+			map_candi[level][nd_c->name] = nd;
+		}
 	}
 }
 // build pad connection nets
