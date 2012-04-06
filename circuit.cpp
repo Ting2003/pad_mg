@@ -2732,18 +2732,18 @@ Node *Circuit::find_VDD_spot(Node * nd){
 		return nd_c;
 	
 	// if this spot is occupied by VDD pad, use breath first
-	// search to find spot for it
+	// search to find closest valid candi spot for it
 	queue<Node *> VDD_queue;
 	VDD_queue.push(nd);
 	while(!VDD_queue.empty()){
 		nd = VDD_queue.front();
 		VDD_queue.pop();
-		for(size_t i=0;i<6;i++){
-			net = nd->nbr[i];
+		for(size_t i=0;i<4;i++){
+			net = nd->nbr_pad[i];
 			if(net==NULL) continue;
 			na = net->ab[0];
 			nb = net->ab[1];
-			if(na->name == nd->name && !nb->is_ground()){
+			if(na->name == nd->name){
 				if(nb->flag == false){
 					nd_c_new = nb;
 					cut_flag = true;
@@ -2751,7 +2751,7 @@ Node *Circuit::find_VDD_spot(Node * nd){
 				}
 				VDD_queue.push(nb);
 			}
-			else if(nb->name == nd->name && !na->is_ground()){
+			else if(nb->name == nd->name){
 				if(na->flag == false){
 					nd_c_new = na;
 					cut_flag = true;

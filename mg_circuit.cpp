@@ -103,8 +103,8 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 	}
 		// build up VDD pads and candi pads
 	mg_ckt[level]->VDD = ckt->VDD;
-	set_VDD_pads(ckt, mg_ckt[level]);
 	set_VDD_candi_pads(ckt, mg_ckt[level], level);
+	set_VDD_pads(ckt, mg_ckt[level]);
 	// check map_candi
 	//for(size_t i=0;i<mg_ckt[level]->VDD_candi_set.size();i++){
 		//Node *nd_c = mg_ckt[level]->VDD_candi_set[i];
@@ -365,46 +365,52 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 	Net *net_coarse;
 	Node *na, *nb, *nbr, *nbr_c;
 	for(int i=0;i<4;i++){
-		net = nd->nbr_pad[i];
-		if(net == NULL) continue;
-		na = net->ab[0];
-		nb = net->ab[1];
-		if(na->name == nd->name) nbr = nb;
-		else	nbr = na;
-	
-		Node *temp = nbr;	
-		if(temp->pt.x%2==0 && temp->pt.y%2==0)
-			nbr = temp;
-		// else scan the WEST nbr node
-		else if(temp->pt.x%2==1 && temp->pt.y%2==0){
-			net = temp->nbr[WEST];
-			na = net->ab[0]; nb = net->ab[1];
-			if(na->name == temp->name) nbr = nb;
-			else	nbr = na;	
-		}
-		// else scan the SOUTH nbr node
-		else if(temp->pt.x%2==0 && temp->pt.y%2==1){
-			net = temp->nbr[SOUTH];
-			na = net->ab[0]; nb = net->ab[1];
-			if(na->name == temp->name) nbr = nb;
+		// keep search ing along this direction until hit a 
+		// valid candi nbr in caorse grid
+		while(1){
+			net = nd->nbr_pad[i];
+			if(net == NULL) continue;
+			na = net->ab[0];
+			nb = net->ab[1];
+			if(na->name == nd->name) nbr = nb;
 			else	nbr = na;
+
+			Node *temp = nbr;	
+			if(temp->pt.x%2==0 && temp->pt.y%2==0)
+				nbr = temp;
+			// else scan the WEST nbr node
+			else if(temp->pt.x%2==1 && temp->pt.y%2==0){
+				net = temp->nbr[WEST];
+				na = net->ab[0]; nb = net->ab[1];
+				if(na->name == temp->name) nbr = nb;
+				else	nbr = na;	
+			}
+			// else scan the SOUTH nbr node
+			else if(temp->pt.x%2==0 && temp->pt.y%2==1){
+				net = temp->nbr[SOUTH];
+				na = net->ab[0]; nb = net->ab[1];
+				if(na->name == temp->name) nbr = nb;
+				else	nbr = na;
+			}
+			// else scan the WEST SOUTH nbr node
+			else if(temp->pt.x%2==1 && temp->pt.y%2==1){
+				// first WEST then SOUTH
+				net = temp->nbr[WEST];
+				na = net->ab[0]; nb = net->ab[1];
+				if(na->name == temp->name) nbr = nb;
+				else	nbr = na;
+
+				Node *temp_1 = nbr;	
+				net = temp_1->nbr[SOUTH];
+				na = net->ab[0]; nb = net->ab[1];
+				if(na->name == temp_1->name) nbr = nb;
+				else	nbr = na;
+			}
+			//clog<<*nbr<<endl;
+			nbr_c = coarse_ckt->get_node(nbr->name);
+			if(nbr_c !=NULL) break;
+			nd = nbr;
 		}
-		// else scan the WEST SOUTH nbr node
-		else if(temp->pt.x%2==1 && temp->pt.y%2==1){
-			// first WEST then SOUTH
-			net = temp->nbr[WEST];
-			na = net->ab[0]; nb = net->ab[1];
-			if(na->name == temp->name) nbr = nb;
-			else	nbr = na;
-			
-			Node *temp_1 = nbr;	
-			net = temp_1->nbr[SOUTH];
-			na = net->ab[0]; nb = net->ab[1];
-			if(na->name == temp_1->name) nbr = nb;
-			else	nbr = na;
-		}
-		//clog<<*nbr<<endl;
-		nbr_c = coarse_ckt->get_node(nbr->name);
 		//clog<<"nd_c, nbr_c: "<<*nd_c<<" "<<*nbr_c<<endl;
 		net_coarse = new Net(PAD, 0, nd_c, nbr_c);
 		nd_c->nbr_pad[i] = net_coarse;
