@@ -25,11 +25,12 @@ void MG_Circuit::build_mg_ckt(Circuit *ckt, int layer){
 	string name;
 	for(int i=0;i<LEVEL;i++){	
 		if(i==0){
-			//clog<<"start build mg_ckt[0]. "<<endl;
 			build_one_layer_circuit(ckt, i);
+			//clog<<"finish building level 1."<<endl;
 		}
-		else
+		else{
 			build_one_layer_circuit(mg_ckt[i-1], i);
+		}
 	}
 }
 
@@ -45,30 +46,38 @@ Circuit * MG_Circuit::build_one_layer_circuit_nodelist(Circuit *ckt){
 	// extract ground node exclusively
 	for(size_t i=0;i<ckt->nodelist.size()-1;i++){
 		Node *nd = ckt->nodelist[i];
-		//clog<<endl<<"center node: "<<*nd<<endl;
-		if(i==0){
+		//cout<<endl<<"center node: "<<*nd<<" "<<nd->pt<<endl;
+		/*if(i==0){
 			prev_pt = nd->pt;
 		}
 		else{
-			if(nd->pt.x == prev_pt.x && nd->pt.z == prev_pt.z)
+			cout<<"prev_pt: "<<prev_pt<<endl;
+			if(nd->pt.x == prev_pt.x && nd->pt.z == prev_pt.z){
 				count_y ++;
-			if(nd->pt.y == prev_pt.y && nd->pt.z == prev_pt.z)
+				cout<<"count_y: "<<count_y<<endl;
+			}
+			if(nd->pt.y == prev_pt.y && nd->pt.z == prev_pt.z){
 				count_x++;
+				cout<<"count_x: "<<count_x<<endl;
+			}
 		}
+		cout<<"count_x, count_y: "<<count_x<<" "<<count_y<<endl;
 		if(count_y ==2)
-			prev_pt = nd->pt;
+			prev_pt = nd->pt;*/
 		// keep this node in coarse grid
-		if(count_y % 2==0 && count_x % 2 ==0){			
+		//if(count_y % 2==0 && count_x % 2 ==0){	
+		if(nd->pt.y %2 ==0 && nd->pt.x %2 ==0){		
 			pt_c.x = nd->pt.x / 2;
 			pt_c.y = nd->pt.y / 2;
 			// suppose there is only 1 layer in z direction
 			pt_c.z = nd->pt.z ;
+			//cout<<"net pt: "<<pt_c<<endl;
 
 			// add this node into coarse nodelist
 			Node *nd_c = new Node(nd->name, pt_c, false, 0.0);
 			coarse_ckt->add_node(nd_c);
-			count_y = 0;
-			count_x = 0;	
+			//count_y = 0;
+			//count_x = 0;	
 		}
 	}
 	// handle ground node
@@ -88,12 +97,16 @@ Circuit * MG_Circuit::build_one_layer_circuit_nodelist(Circuit *ckt){
 // ckt is fine grid
 void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 	mg_ckt[level] = build_one_layer_circuit_nodelist(ckt);
+	//cout<<"level, nodelist: "<<level<<" "<<mg_ckt[level]->nodelist.size()-1<<endl;
 	Node *nd, *nd_c;
 	//cout<<endl;
-	//for(size_t i=0;i< mg_ckt[level]->nodelist.size()-1;i++){
-		//cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
-		  //*mg_ckt[level]->nodelist[i]<<" "<<mg_ckt[level]->nodelist[i]->pt<<endl;	
-	//}
+	/*if(level==2){
+	clog<<endl;
+	for(size_t i=0;i< mg_ckt[level]->nodelist.size()-1;i++){
+		cout<<"i, coarse_ckt_nodes: "<<i<<" "<<
+		  *mg_ckt[level]->nodelist[i]<<" "<<mg_ckt[level]->nodelist[i]->pt<<endl;	
+	}
+	}*/
 	for(size_t i=0;i<mg_ckt[level]->nodelist.size()-1;i++){
 		nd_c = mg_ckt[level]->nodelist[i];
 		// find node in finer grid
@@ -101,8 +114,9 @@ void MG_Circuit::build_one_layer_circuit(Circuit *ckt, int level){
 		// build the nbr nets
 		set_nbr_nets(nd, nd_c, ckt, mg_ckt[level]);
 	}
-		// build up VDD pads and candi pads
+	// build up VDD pads and candi pads
 	mg_ckt[level]->VDD = ckt->VDD;
+
 	set_VDD_candi_pads(ckt, mg_ckt[level], level);
 	set_VDD_pads(ckt, mg_ckt[level]);
 	// check map_candi
@@ -301,6 +315,7 @@ void MG_Circuit::set_VDD_candi_pads(Circuit *ckt, Circuit *&coarse_ckt, int leve
 	Node *nd, *nd_c;
 	Net *net;
 	Node *na, *nb, *nbr;
+	cout<<endl;
 	for(size_t i=0;i<ckt->VDD_candi_set.size();i++){
 		nd = ckt->VDD_candi_set[i];
 		if(nd->pt.x%2==0 && nd->pt.y%2==0)
@@ -333,12 +348,13 @@ void MG_Circuit::set_VDD_candi_pads(Circuit *ckt, Circuit *&coarse_ckt, int leve
 			if(na->name == temp->name) nbr = nb;
 			else	nbr = na;
 		}
-
 		nd_c = coarse_ckt->get_node(nbr->name);
-		// if this spot is not occupied by a candi, then assign
-		// to it, else skip
+		//nd = nbr;
+		// if this spot is not occupied by a candi, 
+		// then assign to it, else skip
 		if(nd_c->flag_candi == false){
 			coarse_ckt->VDD_candi_set.push_back(nd_c);
+			//cout<<"push back: "<<*nd_c<<endl;
 			nd_c->flag_candi = true;
 			map_candi[level][nd_c->name] = nd;
 		}
@@ -351,8 +367,7 @@ void MG_Circuit::set_pad_nbr_nets(Circuit *ckt, Circuit *&coarse_ckt,
 	for(size_t i=0;i<coarse_ckt->VDD_candi_set.size();i++){
 		nd_c  = coarse_ckt->VDD_candi_set[i];
 		//clog<<endl<<"nd_c: "<<*nd_c<<endl;
-		nd = map_candi[level][nd_c->name];
-		//clog<<"nd: "<<*nd<<endl;
+		nd = map_candi[level][nd_c->name];	
 		//nd = ckt->get_node(nd_c->name);
 		set_pad_nbr_net(nd, nd_c, ckt, coarse_ckt);		
 	}
@@ -364,12 +379,18 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 	Net *net;
 	Net *net_coarse;
 	Node *na, *nb, *nbr, *nbr_c;
+	bool break_flag = false;
 	for(int i=0;i<4;i++){
-		// keep search ing along this direction until hit a 
+		// keep searching along this direction until hit a 
 		// valid candi nbr in caorse grid
-		while(1){
-			net = nd->nbr_pad[i];
-			if(net == NULL) continue;
+
+		net = nd->nbr_pad[i];
+		if(net == NULL){
+			//cout<<"null net, continue. "<<endl;
+			continue; //break;
+		}
+		while(net!=NULL){
+			//clog<<*nd<<" "<<*net<<endl;
 			na = net->ab[0];
 			nb = net->ab[1];
 			if(na->name == nd->name) nbr = nb;
@@ -408,10 +429,11 @@ void MG_Circuit::set_pad_nbr_net(Node *nd, Node *&nd_c, Circuit *ckt,
 			}
 			//clog<<*nbr<<endl;
 			nbr_c = coarse_ckt->get_node(nbr->name);
+			//clog<<*nbr_c<<endl;
 			if(nbr_c !=NULL) break;
 			nd = nbr;
+			net = nd->nbr_pad[i];
 		}
-		//clog<<"nd_c, nbr_c: "<<*nd_c<<" "<<*nbr_c<<endl;
 		net_coarse = new Net(PAD, 0, nd_c, nbr_c);
 		nd_c->nbr_pad[i] = net_coarse;
 		//cout<<*nd_c->nbr_pad[i]<<endl;
@@ -424,7 +446,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	Circuit *ckt_finer;
 	Node *nd_c, *nd;
 	double Frozen_T=0;
-	int temp = 10;
+	int temp = 1;
 	
 	for(int i=LEVEL-1;i>=0;i--){
 		clog<<endl<<"====> solve level "<<i<<"th ckt <==== "<<endl;
@@ -434,11 +456,18 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		// only perform ransac and opti to coarest level
 		if(i== LEVEL-1){
 			//ckt_coarse->VDD = 0;
-			ckt_coarse->solve_coarse(0.0001);	
+			//if(i>0)
+				ckt_coarse->solve_coarse(0.0001*temp);
+			//else if(i>=1)
+				//ckt_coarse->solve_coarse(0.0001*temp, false);
+			//temp  *= 10;
+
 		}
 		else{
 			ckt_coarse->solve(0.0001*temp);
-			temp *= 10;	
+			temp *= 10;
+	
+			//ckt_coarse->print_matlab();
 		}
 
 		if(i>=1) ckt_finer = mg_ckt[i-1];
@@ -463,6 +492,14 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 			 
 			// then rebuild voltage nets
 			mg_ckt[i-1]->rebuild_voltage_nets();
+			//mg_ckt[i-1]->solve_init();
+			//mg_ckt[i-1]->solve_LU();
+
+			//mg_ckt[i-1]->locate_maxIRdrop();
+			//mg_ckt[i-1]->print_matlab();
+			//clog<<"====== new max_IRdrop is: "<<mg_ckt[i-1]->max_IRdrop<<" ======== "<<endl;
+		
+
 		}
 		else{
 			ckt = ckt_finer;
@@ -470,6 +507,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		}
 
 	}
+	//return;
 	// finest level
 	clog<<endl<<"====> solve finest level ckt <===="<<endl;
 	//ckt->solve_init();
@@ -479,7 +517,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
-	ckt->SA_new(1, true);
+	ckt->SA_new(10, true);
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 
