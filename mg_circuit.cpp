@@ -464,8 +464,11 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 
 		}
 		else{
-			ckt_coarse->solve(0.0001*temp);
-			temp *= 10;
+			double temp_good = 0.0001*temp;
+			temp *=10;
+			if(temp_good <0.01)
+				temp_good = 0.01;
+			ckt_coarse->solve(temp_good);
 	
 			//ckt_coarse->print_matlab();
 		}
