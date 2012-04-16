@@ -335,7 +335,7 @@ double Circuit::SA(double Frozen_T){
 		locate_maxIRdrop();
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
 		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<max_IRdrop<<endl;
-		//if(1.0*Move_num_rejected / Movement >= 0.99) break;
+		if(1.0*Move_num_rejected / Movement >= 0.9) break;
 		iter_T++;
 	}
 
