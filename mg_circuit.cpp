@@ -455,13 +455,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		//ckt_coarse->VDD = ckt->VDD;
 		// only perform ransac and opti to coarest level
 		if(i== LEVEL-1){
-			//ckt_coarse->VDD = 0;
-			//if(i>0)
-				ckt_coarse->solve_coarse(0.0001*temp);
-			//else if(i>=1)
-				//ckt_coarse->solve_coarse(0.0001*temp, false);
-			//temp  *= 10;
-
+			ckt_coarse->solve(0.0001*temp);
 		}
 		else{
 			double temp_good = 0.0001*temp;
@@ -520,8 +514,8 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
-	ckt->SA_new(10, true);
-	//ckt->solve_GS();
+	ckt->solve(0.001);
+	//ckt->SA(0.001);
 	ckt->locate_maxIRdrop();
 
 	ckt->print_matlab();

@@ -316,8 +316,6 @@ double Circuit::SA(double Frozen_T){
 					Move_num_rejected++;
 				}
 			}
-			// recompute worst voltage drop
-			//recompute_worst_IRdrop();
 		}
 		//clog<<"change_cost_total: "<<change_cost_total<<endl;
 		/*if(iter_T ==1){//calculate the start temperature
@@ -2254,12 +2252,10 @@ double Circuit::optimize_pad_assign_new(){
 	double old_maxIR = 10*max_IRdrop;
 
 	vector<Node *> nodesUpdate_move;
-	// clog<<"max_IR before opti: "<<max_IRdrop<<endl;
 	while(abs(max_IRdrop) < abs(old_maxIR)){
-	//do{
+		iter ++;
 		old_maxIR = max_IRdrop;
 		clear_candi_visit();
-	//for(size_t iter=1; iter<Movement; iter++){	
 		nodesUpdate_move.resize(0);
 		// find pad located in mimum IR drop area
 		rm_pad = find_min_IRdrop_pad(min_index);
@@ -2280,32 +2276,33 @@ double Circuit::optimize_pad_assign_new(){
 		add_pad->value = VDD;
 		rm_pad->flag = false;
 		rm_pad->value = 0;
-		//update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
-				//iter);
-		index_rm_net = rebuild_voltage_nets_one_move(rm_pad, add_pad, 
-		rm_net, add_net);
+		update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
+				iter);
+		//index_rm_net = rebuild_voltage_nets_one_move(rm_pad, add_pad, 
+		//rm_net, add_net);
 		//clog<<"rm_net, add_net: "<<*rm_net<<" "<<*add_net<<endl;
-		solve_LU_core();
+		//solve_LU_core();
 		locate_maxIRdrop();
-		//clog<<"old_max, new_MAX: "<<old_maxIR<<" "<<
-			//max_IRdrop<<endl;
+		clog<<"old_max, new_MAX: "<<old_maxIR<<" "<<
+			max_IRdrop<<endl;
 		if(abs(max_IRdrop) > abs(old_maxIR)){
 			//clog<<"rm_net, add_net, index: "<<
 			//*rm_net<<" "<<*add_net<<" "<<index_rm_net<<endl;
 			//clog<<"net_set: "<<*net_set[VOLTAGE][index_rm_net]<<endl;
-			net_set[VOLTAGE][index_rm_net] = rm_net;
+			//net_set[VOLTAGE][index_rm_net] = rm_net;
 			//clog<<"net_set again: "<<*net_set[VOLTAGE][index_rm_net]<<endl;
 			rm_pad->flag = true; // add_pad is VDD pad now
 			rm_pad->value = VDD;
 			add_pad->flag = false;
 			add_pad->value = 0;
-			free(add_net);
+			//free(add_net);
 			break;
 		}	
 
 		VDD_set[min_index] = add_pad;
-		free(rm_net);
+		//free(rm_net);
 	}//while(abs(max_IRdrop)<abs(old_maxIR));
+	rebuild_voltage_nets();
 	solve_LU_core();
 	//locate_maxIRdrop();
 	//clog<<"final max_IR after opti: "<<max_IRdrop<<endl;
