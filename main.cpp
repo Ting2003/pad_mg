@@ -116,7 +116,7 @@ int main(int argc, char * argv[]){
 		clog<<"====== origin max_IRdrop is: "<<ckt->max_IRdrop<<" ======== "<<endl;
 		
 		MG_Circuit mg_ckt;
-		mg_ckt.build_mg_ckt(ckt, 1);
+		mg_ckt.build_mg_ckt(ckt, 0);
 		clog<<"finish build mg ckt. "<<endl;
 		mg_ckt.solve_mg_ckt(ckt);
 		// DEBUG: output each circuit to separate file

@@ -520,4 +520,8 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 
 	ckt->print_matlab();
 	clog<<"max IRdrop after SA: 		"<<ckt->max_IRdrop<<endl;
+	//ckt->rebuild_voltage_nets();
+	//ckt->solve_LU_core();
+	//ckt->locate_maxIRdrop();
+	//clog<<"double checked max IRdrop. "<<ckt->max_IRdrop<<endl;
 } 
