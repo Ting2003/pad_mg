@@ -266,16 +266,18 @@ double Circuit::SA(double Frozen_T){
 	//double prev_maxIRdrop_T = max_IRdrop;
 
 	//double prev_sumIRdrop = locate_maxIRdrop();
-	double prev_penalty = 0;
-	double cur_penalty;
-	for(size_t i=0;i<nodelist.size()-1;i++)
-		prev_penalty += penalty(VDD-nodelist[i]->value, max_IRdrop);
+	//double prev_penalty = 0;
+	//double cur_penalty;
+	//for(size_t i=0;i<nodelist.size()-1;i++)
+	//	prev_penalty += penalty(VDD-nodelist[i]->value, max_IRdrop);
 	//double cur_sumIRdrop = 0;
 
 	size_t index_rm_net;	
 	Net *rm_net, *add_net;	
 	
 	//clog<<"before starting T iteration."<<endl;
+	//
+	int count_break=0;
 	while (T > Frozen_T){
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<=Movement; iter_move++){
@@ -284,20 +286,19 @@ double Circuit::SA(double Frozen_T){
 				add_pad, rm_index, iter_move,
 				rm_net, add_net, index_rm_net);
 			locate_maxIRdrop();
-			cur_penalty = 0;
-			for(size_t i=0;i<nodelist.size()-1;i++)
-				cur_penalty += penalty(VDD-nodelist[i]->value, prev_maxIRdrop);	
+			//cur_penalty = 0;
+			//for(size_t i=0;i<nodelist.size()-1;i++)
+			//	cur_penalty += penalty(VDD-nodelist[i]->value, prev_maxIRdrop);	
 			//clog<<"prev, new max: "<<prev_maxIRdrop<<" "<<max_IRdrop<<endl;
 			//double change_cost = max_IRdrop - prev_maxIRdrop;
 			//double change_cost = cur_sumIRdrop - 
 			//	prev_sumIRdrop;
-			double change_cost = cur_penalty - prev_penalty;
+			//double change_cost = cur_penalty - prev_penalty;
 			
-			clog<<endl<<"cur_penalty, prev_penalty, change_cost: "<<cur_penalty<<" "<<prev_penalty<<" "<<change_cost<<endl;
-			//double change_cost = update_cost(
-			//	nodesUpdate_move, iter_T, 
-			//	change_cost_total, old_voltages, 
-			//	prev_maxIRdrop);
+			//clog<<endl<<"cur_penalty, prev_penalty, change_cost: "<<cur_penalty<<" "<<prev_penalty<<" "<<change_cost<<endl;
+			double change_cost = update_cost(
+				nodesUpdate_move, iter_T, 
+				change_cost_total, old_voltages);
 			//clog<<"change cost: "<<change_cost<<endl;
 			if(change_cost<0){// || change_cost_total < 0){
 				//clog<<"accept. "<<endl;
@@ -309,7 +310,7 @@ double Circuit::SA(double Frozen_T){
 				  rm_net);
 				//clog<<"prev_maxIRdrop, max_IRdrop: "<<prev_maxIRdrop<<" "<<max_IRdrop<<endl;
 				prev_maxIRdrop = max_IRdrop;
-				prev_penalty = cur_penalty;
+				//prev_penalty = cur_penalty;
 				//clog<<"new_maxIRdrop: "<<prev_maxIRdrop<<endl;
 			}
 			else{
@@ -321,7 +322,7 @@ double Circuit::SA(double Frozen_T){
 
 					//clog<<"prev_maxIRdrop, max_IRdrop: "<<prev_maxIRdrop<<" "<<max_IRdrop<<endl;
 					prev_maxIRdrop = max_IRdrop;
-					prev_penalty = cur_penalty;
+					//prev_penalty = cur_penalty;
 
 					//clog<<"new_maxIRdrop: "<<prev_maxIRdrop<<endl;
 					  //locate_maxIRdrop();
@@ -353,7 +354,12 @@ double Circuit::SA(double Frozen_T){
 		locate_maxIRdrop();
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
 		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<max_IRdrop<<endl;
-		//if(1.0*Move_num_rejected / Movement >= 0.9) break;
+		if(1.0*Move_num_rejected / Movement >= 0.9){
+			count_break +=1;
+			if(count_break>=5)
+			 break;
+		}
+		else 	count_break=0;
 		iter_T++;
 	}
 
@@ -816,12 +822,12 @@ void Circuit::solve(double Frozen_T){
 	*/
 
 	// optimized method plus SA
-	/*optimize_pad_assign_new();
+	optimize_pad_assign_new();
 	clog<<"max_IRdrop after opti:		 "<<
 		max_IRdrop<<endl;
 	rebuild_voltage_nets();
 	solve_LU_core();
-	locate_maxIRdrop();*/
+	locate_maxIRdrop();
 
 	SA(Frozen_T);
 	locate_maxIRdrop();
@@ -1656,8 +1662,10 @@ inline double Circuit::penalty(double v, double vworst){
 		penalty = v*v*10;
 	else if(v>=0.98*vworst)
 		penalty = v*v*100;
+	else if(v>=0.5*vworst && v<0.8*vworst)
+		penalty = v*v*5;
 	else
-		penalty = 0;
+		penalty = 0;//v*v;
 	return penalty;
 }
 
@@ -2070,6 +2078,7 @@ double Circuit::update_cost(vector<Node*> &nodesUpdate_move,
 	Node *nd;
 	for (size_t i=0; i<nodelist.size()-1;i++){//nodesUpdate_move.size();i++){
 		nd = nodelist[i];//nodesUpdate_move[i] ;
+		//change_cost += old_voltages[nd->rid]-nd->value;
 		change_cost += penalty(VDD-nd->value, max_IRdrop)-
 			penalty(VDD-old_voltages[nd->rid], max_IRdrop);
 	}
