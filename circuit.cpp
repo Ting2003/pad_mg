@@ -340,8 +340,8 @@ double Circuit::SA(double Frozen_T){
 				}
 			}
 		}
-		//clog<<"change_cost_total: "<<change_cost_total<<endl;
-		/*if(iter_T ==1){//calculate the start temperature
+		clog<<"change_cost_total: "<<change_cost_total<<endl;
+		if(iter_T ==1){//calculate the start temperature
 			if(change_cost_total >= 0)
 				T = -(change_cost_total/Movement)
 					/log(P);
@@ -349,7 +349,7 @@ double Circuit::SA(double Frozen_T){
 				T = (change_cost_total/Movement)
 					/log(P);
 			//printf("the initial temperature is %f \n", T);
-		}//*/
+		}//
 		//printf("the temperature and probablity of accept is %f, %f \n", T, prob);
 
 		T *= T_drop;
