@@ -514,7 +514,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
-	ckt->solve(0.001);
+	ckt->solve(0.001);//50);//50);//50);//50);//50);//50);//50);//50);//50);//0.001);
 	//ckt->SA(0.001);
 	ckt->locate_maxIRdrop();
 

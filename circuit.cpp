@@ -281,6 +281,7 @@ double Circuit::SA(double Frozen_T){
 	while (T > Frozen_T){
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<=Movement; iter_move++){
+			//clog<<"prev_maxIR: "<<prev_maxIRdrop<<endl;
 			// compute one movement
 			one_move(nodesUpdate_move, rm_pad, 
 				add_pad, rm_index, iter_move,
@@ -290,7 +291,7 @@ double Circuit::SA(double Frozen_T){
 			//for(size_t i=0;i<nodelist.size()-1;i++)
 			//	cur_penalty += penalty(VDD-nodelist[i]->value, prev_maxIRdrop);	
 			//clog<<"prev, new max: "<<prev_maxIRdrop<<" "<<max_IRdrop<<endl;
-			//double change_cost = max_IRdrop - prev_maxIRdrop;
+			double change_max = max_IRdrop - prev_maxIRdrop;
 			//double change_cost = cur_sumIRdrop - 
 			//	prev_sumIRdrop;
 			//double change_cost = cur_penalty - prev_penalty;
@@ -300,7 +301,8 @@ double Circuit::SA(double Frozen_T){
 				nodesUpdate_move, iter_T, 
 				change_cost_total, old_voltages);
 			//clog<<"change cost: "<<change_cost<<endl;
-			if(change_cost<0){// || change_cost_total < 0){
+			//if(change_max <0){
+			if(change_cost<0){// && change_max < 0){
 				//clog<<"accept. "<<endl;
 				//if(change_cost <0)
 				//if(change_cost_total < 0)
@@ -352,14 +354,14 @@ double Circuit::SA(double Frozen_T){
 
 		T *= T_drop;
 		locate_maxIRdrop();
-		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
+		//clog<<endl<<"new_max: "<<" "<<max_IRdrop<<endl;
 		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<max_IRdrop<<endl;
-		if(1.0*Move_num_rejected / Movement >= 0.9){
+		if(1.0*Move_num_rejected / Movement >= 1.0){
 			count_break +=1;
 			if(count_break>=5)
 			 break;
 		}
-		else 	count_break=0;
+		else 	count_break=0;		
 		iter_T++;
 	}
 
@@ -825,13 +827,14 @@ void Circuit::solve(double Frozen_T){
 	optimize_pad_assign_new();
 	clog<<"max_IRdrop after opti:		 "<<
 		max_IRdrop<<endl;
-	rebuild_voltage_nets();
-	solve_LU_core();
-	locate_maxIRdrop();
 
 	SA(Frozen_T);
 	locate_maxIRdrop();
-	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;	
+	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;
+	/*if(max_IRdrop>0.37)
+	SA(Frozen_T);
+	locate_maxIRdrop();
+	clog<<"max_IRdrop after SA again: "<<max_IRdrop<<endl;	*/
 }
 
 // restamp current into rhs for SA computation
@@ -1662,10 +1665,10 @@ inline double Circuit::penalty(double v, double vworst){
 		penalty = v*v*10;
 	else if(v>=0.98*vworst)
 		penalty = v*v*100;
-	else if(v>=0.5*vworst && v<0.8*vworst)
-		penalty = v*v*5;
+	//else if(v>=0.5*vworst && v<0.8*vworst)
+	//	penalty = v*v*10;
 	else
-		penalty = 0;//v*v;
+		penalty = 0;
 	return penalty;
 }
 
@@ -2076,8 +2079,13 @@ double Circuit::update_cost(vector<Node*> &nodesUpdate_move,
 		double *old_voltages){
 	double change_cost = 0;
 	Node *nd;
-	for (size_t i=0; i<nodelist.size()-1;i++){//nodesUpdate_move.size();i++){
-		nd = nodelist[i];//nodesUpdate_move[i] ;
+	double cost_origin, cost_new;
+	cost_origin = 0;
+	cost_new = 0;
+	for (size_t i=0; i<nodesUpdate_move.size();i++){
+		nd = nodesUpdate_move[i] ;
+		//cost_new += penalty(VDD-nd->value, max_IRdrop);
+		//cost_origin += penalty(VDD-old_voltages[nd->rid],max_IRdrop);
 		//change_cost += old_voltages[nd->rid]-nd->value;
 		change_cost += penalty(VDD-nd->value, max_IRdrop)-
 			penalty(VDD-old_voltages[nd->rid], max_IRdrop);
@@ -2086,6 +2094,7 @@ double Circuit::update_cost(vector<Node*> &nodesUpdate_move,
 		// accept all the movements at the beginning
 		change_cost_total += change_cost;
 	}
+	//clog<<"cost_new, cost_origin: "<<cost_new<<" "<<cost_origin<<endl;
 	return change_cost;
 }
 
@@ -2215,7 +2224,7 @@ void Circuit::recompute_worst_IRdrop(){
 }
 
 bool Circuit::acceptProb(double p){
-	return rand()<p*((double)RAND_MAX+1.0);
+	return rand()<((double)RAND_MAX+1.0)*p;
 }
 
 int random_gen(int min, int max){
@@ -2311,15 +2320,15 @@ double Circuit::optimize_pad_assign_new(){
 		add_pad->value = VDD;
 		rm_pad->flag = false;
 		rm_pad->value = 0;
-		update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
-				iter);
-		//index_rm_net = rebuild_voltage_nets_one_move(rm_pad, add_pad, 
-		//rm_net, add_net);
+		//update_pad_value(rm_pad, add_pad, nodesUpdate_move, 
+		//		iter);
+		index_rm_net = rebuild_voltage_nets_one_move(rm_pad, add_pad, 
+		rm_net, add_net);
 		//clog<<"rm_net, add_net: "<<*rm_net<<" "<<*add_net<<endl;
-		//solve_LU_core();
+		solve_LU_core();
 		locate_maxIRdrop();
 		//clog<<"old_max, new_MAX: "<<old_maxIR<<" "<<
-			//max_IRdrop<<endl;
+		//	max_IRdrop<<endl;
 		if(abs(max_IRdrop) > abs(old_maxIR)){
 			reject_move(nodesUpdate_move, rm_pad, add_pad, 
 				old_voltages, rm_net, add_net, 
@@ -2327,9 +2336,12 @@ double Circuit::optimize_pad_assign_new(){
 			break;
 		}
 		accept_move(nodesUpdate_move, old_voltages, min_index,
-			add_pad, rm_net);		
+			add_pad, rm_net);	
+		//clog<<"accept move. "<<endl;	
 
 	}//while(abs(max_IRdrop)<abs(old_maxIR));
+	
+	//clog<<"final max_IR after opti: "<<max_IRdrop<<endl;
 	rebuild_voltage_nets();
 	solve_LU_core();
 	locate_maxIRdrop();
