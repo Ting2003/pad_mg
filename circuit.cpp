@@ -340,7 +340,7 @@ double Circuit::SA(double Frozen_T){
 				}
 			}
 		}
-		clog<<"change_cost_total: "<<change_cost_total<<endl;
+		//clog<<"change_cost_total: "<<change_cost_total<<endl;
 		if(iter_T ==1){//calculate the start temperature
 			if(change_cost_total >= 0)
 				T = -(change_cost_total/Movement)
