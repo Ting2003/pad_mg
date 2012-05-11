@@ -236,6 +236,97 @@ double Circuit::SACost(){
 }
 
 // simulated annealing
+double Circuit::SA_new(double Frozen_T, bool flag){	
+	//total cost change of all movement at beginning
+	double change_cost_total=0; 
+	double P = 0.5; // initial probability
+	double T_drop = 0.85; // T=T*T_drop
+	// probability to do the movement when cost_change>
+	// 0. exp(-cost_change/ Temperature);
+	
+	// copy the node voltages
+	size_t N = nodelist.size()-1;
+	double *old_voltages; 
+	old_voltages = new double [N];
+	for(size_t i=0;i<N;i++){
+		old_voltages[i] = nodelist[i]->value;
+	}
+	vector<Node *> nodesUpdate_move;
+	Node *rm_pad, *add_pad;
+	size_t rm_index;
+	rm_pad = NULL;
+	add_pad = NULL;	
+
+	double T = 100; // a initial guess
+	//double Frozen_T=0.001;
+	size_t Movement = 10;
+	size_t Move_num_rejected=0;
+	size_t iter_move=1; size_t iter_T = 0;
+	double prev_maxIRdrop = max_IRdrop;
+	double prev_maxIRdrop_T = max_IRdrop;
+
+	double prev_sumIRdrop = locate_maxIRdrop();
+	double cur_sumIRdrop = 0;
+	
+	size_t index_rm_net;	
+	Net *rm_net, *add_net;
+	bool flag_gain = false;
+	double prob = 0;
+	//if(flag == true) prob = 0.9;
+	//else if(flag ==  false) prob= 0.99;
+	prob=1.0;
+	
+	//clog<<"before starting T iteration."<<endl;
+	while (T > Frozen_T){
+		Move_num_rejected = 0;  
+		for (iter_move=1; iter_move<Movement; iter_move++){
+			// compute one movement
+			one_move(nodesUpdate_move, rm_pad, 
+				add_pad, rm_index, iter_move,
+				rm_net, add_net, index_rm_net);
+			cur_sumIRdrop = locate_maxIRdrop();
+			//clog<<"new max: "<<max_IRdrop<<endl;
+			double change_cost = max_IRdrop - prev_maxIRdrop;
+			double change_cost_total = cur_sumIRdrop - 
+				prev_sumIRdrop;
+			//double change_cost = update_cost(
+				//nodesUpdate_move, iter_T, 
+				//change_cost_total, old_voltages);
+			if(flag == true && change_cost<0) flag_gain = true;
+			else if(change_cost<0 && change_cost_total<0)
+				flag_gain = true;
+			if(flag_gain == true){
+				//clog<<"accept. "<<max_IRdrop<<" "<<cur_sumIRdrop<<endl;
+				if(change_cost <0)
+					prev_maxIRdrop = max_IRdrop;
+				if(change_cost_total < 0)
+					prev_sumIRdrop = cur_sumIRdrop;
+				accept_move(nodesUpdate_move, 
+				  old_voltages, rm_index, add_pad,
+				  rm_net);
+				flag_gain = false;
+			}
+			else{	
+				reject_move(nodesUpdate_move,
+						rm_pad, add_pad,
+						old_voltages, rm_net, add_net,
+						index_rm_net);
+				Move_num_rejected++;
+				//clog<<"rejected: "<<Move_num_rejected<<endl;
+			}
+		}
+		T *= T_drop;
+		clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
+		clog<<"iter_T, T, stop_prob: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<endl;
+		if(1.0*Move_num_rejected / Movement >= prob) break;
+		iter_T++;
+	}
+
+	nodesUpdate_move.clear();
+	delete [] old_voltages;
+	return max_IRdrop;
+}
+// simulated annealing
 double Circuit::SA(double Frozen_T){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
@@ -263,6 +354,7 @@ double Circuit::SA(double Frozen_T){
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	double prev_maxIRdrop = max_IRdrop;
+	double change_cost=0;
 	//double prev_maxIRdrop_T = max_IRdrop;
 
 	//double prev_sumIRdrop = locate_maxIRdrop();
@@ -278,7 +370,9 @@ double Circuit::SA(double Frozen_T){
 	//clog<<"before starting T iteration."<<endl;
 	//
 	int count_break=0;
-	while (T > Frozen_T){
+	int temp_iter = 0;
+	while (T > Frozen_T){// && temp_iter<10){
+		temp_iter++;
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<=Movement; iter_move++){
 			//clog<<"prev_maxIR: "<<prev_maxIRdrop<<endl;
@@ -297,9 +391,12 @@ double Circuit::SA(double Frozen_T){
 			//double change_cost = cur_penalty - prev_penalty;
 			
 			//clog<<endl<<"cur_penalty, prev_penalty, change_cost: "<<cur_penalty<<" "<<prev_penalty<<" "<<change_cost<<endl;
-			double change_cost = update_cost(
+			//if(T>1){
+				change_cost= update_cost(
 				nodesUpdate_move, iter_T, 
 				change_cost_total, old_voltages);
+			/*}else
+				change_cost = max_IRdrop-prev_maxIRdrop;*/
 			//clog<<"change cost: "<<change_cost<<endl;
 			//if(change_max <0){
 			if(change_cost<0){// && change_max < 0){
@@ -316,6 +413,7 @@ double Circuit::SA(double Frozen_T){
 				//clog<<"new_maxIRdrop: "<<prev_maxIRdrop<<endl;
 			}
 			else{
+				//if(T>1){
 				double prob = exp(-change_cost/T);
 				if(acceptProb(prob)==true){
 					accept_move(nodesUpdate_move,
@@ -338,6 +436,14 @@ double Circuit::SA(double Frozen_T){
 					  index_rm_net);
 					Move_num_rejected++;
 				}
+				/*}
+				else{
+					reject_move(nodesUpdate_move,
+					  rm_pad, add_pad,
+					  old_voltages, rm_net, add_net,
+					  index_rm_net);
+					Move_num_rejected++;
+				}*/
 			}
 		}
 		//clog<<"change_cost_total: "<<change_cost_total<<endl;
@@ -358,7 +464,7 @@ double Circuit::SA(double Frozen_T){
 		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<max_IRdrop<<endl;
 		if(1.0*Move_num_rejected / Movement >= 1.0){
 			count_break +=1;
-			if(count_break>=5)
+			if(count_break>=2)
 			 break;
 		}
 		else 	count_break=0;		
@@ -374,7 +480,7 @@ double Circuit::SA(double Frozen_T){
 	delete [] old_voltages;
 	return max_IRdrop;
 }	
-// simulated annealing
+/*// simulated annealing
 double Circuit::SA_new(double Frozen_T, bool flag){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
@@ -464,7 +570,7 @@ double Circuit::SA_new(double Frozen_T, bool flag){
 	nodesUpdate_move.clear();
 	delete [] old_voltages;
 	return max_IRdrop;
-}	
+}*/	
 
 
 // simulated annealing
@@ -792,13 +898,17 @@ void Circuit::solve_coarse(double Frozen_T){
 	//clog<<"max_IRdrop after ransac init:	 "<<max_IRdrop<<endl;
 
 	// optimized method plus SA
-	optimize_pad_assign_new();
+	/*optimize_pad_assign_new();
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after opti:		 "<<
-		max_IRdrop<<endl;
-
+		max_IRdrop<<endl;*/
+	clock_t t1, t2;
+	t1 = clock();
 	SA(Frozen_T);
 	locate_maxIRdrop();
+	t2 = clock();
+	double time = 1.0*(t2-t1)/CLOCKS_PER_SEC;
+	clog<<"time for SA is: "<<time<<endl;
 	clog<<"max_IRdrop after SA  :		 "<<max_IRdrop<<endl;
 }
 
@@ -807,10 +917,10 @@ void Circuit::solve(double Frozen_T){
 	//if( MODE == 0 )
 		//solve_IT();
 	//else
-		solve_LU();
-	locate_maxIRdrop();
+		//solve_LU();
+//	locate_maxIRdrop();
 	//locate_thIRdrop();
-	clog<<"initial max_IRdrop is: 	"<<max_IRdrop<<endl;
+//	clog<<"initial max_IRdrop is: 	"<<max_IRdrop<<endl;
 	// use ransac method to get a better init pad assignment
 	/*RANSAC_init();
 	locate_maxIRdrop();
@@ -828,7 +938,8 @@ void Circuit::solve(double Frozen_T){
 	clog<<"max_IRdrop after opti:		 "<<
 		max_IRdrop<<endl;
 
-	SA(Frozen_T);
+	bool flag=false;
+	SA_new(Frozen_T, flag);
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after SA  :	"<<max_IRdrop<<endl;
 	/*if(max_IRdrop>0.37)
@@ -1849,7 +1960,8 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	vector<Node*>&nodesUpdate_move, int iter_move){
 	size_t iter = 1;
 	// eps0 need to be very small
-	double eps0=3e-9;//1e-10;
+	double eps0=3e-9;//3e-9;//1e-10;
+	double eps1 = 5e-9;
 	Node *ref_node;
 	ref_node = rm_pad;
 		
@@ -1866,6 +1978,7 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 	double max_diff = 1;
 	double diff = 0;
 	Node *max_nd;
+	int LIMIT=20;
 	// only test 1 iteration
 	clock_t t1, t2;
 	t1 = clock();
@@ -1881,7 +1994,7 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 		double vol_old = rm_pad->value;
 		double vol_new = 0;
 		size_t count = 2;
-		while(q.isEmpty()==false && abs(diff)>5e-9){
+		while(q.isEmpty()==false && abs(diff)>eps0){//5e-9){
 			Node *nd = q.extractFront();
 
 				count++;
@@ -1907,14 +2020,17 @@ void Circuit::update_pad_value(Node *rm_pad, Node *add_pad,
 			//if(diff>1e-10)
 				update_queue(q, nd, iter);
 		}
-		//clog<<"count in queue is: "<<count<<endl;
+		cout<<"count in queue is: "<<count<<endl;
 		//clog<<"iter, max_diff, nd: "<<iter<<" "<<max_diff<<endl;
 			//" "<<*max_nd<<endl;
 		iter++;
 		//clog<<"max_node: "<<*max_nd<<endl;
 	}
 	t2= clock();
-	//clog<<"solve: "<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
+	cout<<"iter: "<<iter<<endl;
+	//cout<<"iteration for moving one pad: "<<iter<<endl;
+		//clog<<"iterationfor one updating: "<<temp_iter<<endl;
+	cout<<"time for moving one pad: "<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
 	
 	//cout<<"iter for one rm_pad is: "<<iter<<endl;
 	delete [] timestamps;
@@ -1991,7 +2107,7 @@ double Circuit::update_node_value(int iter, Node *&rm_pad, Node *&nd){
 		return 0;
 	}
 	double h = 0.06;
-	double omega = 2-h;
+	double omega = 1.0;//2-h;
 	double V_old=0;
 	double V_temp = 0;
 	double G = 0;
@@ -2017,6 +2133,10 @@ double Circuit::update_node_value(int iter, Node *&rm_pad, Node *&nd){
 			V_temp += G*nbr->value;
 		}
 	}
+	double radius_x = fabs(nd->pt.x-rm_pad->pt.x);
+	double radius_y = fabs(nd->pt.y-rm_pad->pt.y);
+	//cout<<"nd, rm: "<<*nd<<" "<<*rm_pad<<endl;
+	//cout<<"Rx, Ry: "<<radius_x<<" "<<radius_y<<endl;
 	if(nd->nbr[BOTTOM]== NULL) current = 0;
 	else	current = -nd->nbr[BOTTOM]->value;
 	V_temp += current;
@@ -2027,6 +2147,7 @@ double Circuit::update_node_value(int iter, Node *&rm_pad, Node *&nd){
 		nd->value = (1-omega)*nd->value + omega*V_temp;
  	
 	double V_improve = fabs(nd->value - V_old);
+	//cout<<V_improve<<endl;
 
 	return V_improve;
 }
