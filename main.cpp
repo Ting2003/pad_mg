@@ -112,6 +112,9 @@ int main(int argc, char * argv[]){
 		mg_ckt.build_mg_ckt(ckt, 4);
 		clog<<"finish build mg ckt. "<<endl;
 		mg_ckt.solve_mg_ckt(ckt);
+		ckt->rebuild_voltage_nets();
+		ckt->solve_LU_core();
+		ckt->locate_maxIRdrop();
 		// DEBUG: output each circuit to separate file
 		//char ofname[MAX_BUF];
 		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());

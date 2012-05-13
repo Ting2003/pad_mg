@@ -464,11 +464,13 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 
 		}
 		else{
+		//if(i>=LEVEL-4){
 			ckt_coarse->solve(0.0001*temp);
 			temp *= 10;
+		}
 	
 			//ckt_coarse->print_matlab();
-		}
+		//}
 
 		if(i>=1) ckt_finer = mg_ckt[i-1];
 		else	ckt_finer = ckt;
@@ -517,7 +519,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 	clog<<"initial mapped max IRdrop is: 	"<<ckt->max_IRdrop<<endl;
-	ckt->SA_new(10, true);
+	ckt->solve(0.001);
 	//ckt->solve_GS();
 	ckt->locate_maxIRdrop();
 
