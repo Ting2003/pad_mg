@@ -465,7 +465,7 @@ void MG_Circuit::solve_mg_ckt(Circuit *ckt){
 		}
 		else{
 		//if(i>=LEVEL-4){
-			ckt_coarse->solve(0.0001*temp);
+			ckt_coarse->solve_coarse(0.0001*temp);
 			temp *= 10;
 		}
 	

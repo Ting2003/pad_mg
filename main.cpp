@@ -106,15 +106,19 @@ int main(int argc, char * argv[]){
 		ckt->pad_set_init();
 		ckt->solve_LU_core();
 		ckt->locate_maxIRdrop();
+		double dvi_a = ckt->std_dvi();
 		clog<<"====== origin max_IRdrop is: "<<ckt->max_IRdrop<<" ======== "<<endl;
+		clog<<"initial dvi: "<<dvi_a<<endl;
 		
 		MG_Circuit mg_ckt;
-		mg_ckt.build_mg_ckt(ckt, 3);
+		mg_ckt.build_mg_ckt(ckt, 0);
 		clog<<"finish build mg ckt. "<<endl;
 		mg_ckt.solve_mg_ckt(ckt);
 		ckt->rebuild_voltage_nets();
 		ckt->solve_LU_core();
 		ckt->locate_maxIRdrop();
+		double dvi_b = ckt->std_dvi();
+		clog<<"end dvi: "<<dvi_b<<endl;
 		// DEBUG: output each circuit to separate file
 		//char ofname[MAX_BUF];
 		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());

@@ -330,7 +330,7 @@ double Circuit::SA(double Frozen_T){
 
 		T *= T_drop;
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
-		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<prev_maxIRdrop<<endl;
+		//clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<prev_maxIRdrop<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.99) break;
 		iter_T++;
 	}
@@ -345,7 +345,7 @@ double Circuit::SA(double Frozen_T){
 	return max_IRdrop;
 }	
 // simulated annealing
-double Circuit::SA_new(double Frozen_T, bool flag){	
+double Circuit::SA_new(double Frozen_T, bool flag, size_t Movement){	
 	//total cost change of all movement at beginning
 	double change_cost_total=0; 
 	double P = 0.5; // initial probability
@@ -368,7 +368,7 @@ double Circuit::SA_new(double Frozen_T, bool flag){
 
 	double T = 100; // a initial guess
 	//double Frozen_T=0.001;
-	size_t Movement = 10;
+	//size_t Movement = 1;
 	size_t Move_num_rejected=0;
 	size_t iter_move=1; size_t iter_T = 0;
 	double prev_maxIRdrop = max_IRdrop;
@@ -386,7 +386,6 @@ double Circuit::SA_new(double Frozen_T, bool flag){
 	size_t count=0;
 	//clog<<"prob: "<<prob<<endl;	
 	
-	//clog<<"before starting T iteration."<<endl;
 	while (T > Frozen_T){
 		Move_num_rejected = 0;  
 		for (iter_move=1; iter_move<Movement; iter_move++){
@@ -428,7 +427,7 @@ double Circuit::SA_new(double Frozen_T, bool flag){
 		}
 		T *= T_drop;
 		//clog<<endl<<"origin max, origin_total: "<<prev_maxIRdrop<<" "<<prev_sumIRdrop<<endl;
-		clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<prev_maxIRdrop<<endl;
+		//clog<<"iter_T, T, stop_prob, max_IR: "<<iter_T<<" "<<T<<" "<<Move_num_rejected<<" / "<<Movement<<" "<<prev_maxIRdrop<<endl;
 		if(1.0*Move_num_rejected / Movement >= 0.8){
 			count = count+1;
 			if(count==5)
@@ -767,14 +766,14 @@ void Circuit::solve_coarse(double Frozen_T){
 	//RANSAC_init();
 	//locate_maxIRdrop();
 	//clog<<"max_IRdrop after ransac init:	 "<<max_IRdrop<<endl;
-
+	
 	// optimized method plus SA
 	optimize_pad_assign_new();
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after opti:		 "<<
 		max_IRdrop<<endl;
 
-	SA_new(Frozen_T, false);
+	SA_new(Frozen_T, false, 10);
 	locate_maxIRdrop();
 	clog<<"max_IRdrop after SA  :		 "<<max_IRdrop<<endl;
 }
@@ -806,7 +805,7 @@ void Circuit::solve(double Frozen_T){
 	clog<<"max_IRdrop after opti:		 "<<
 		max_IRdrop<<endl;
 
-	SA_new(Frozen_T, false);
+	SA_new(Frozen_T, false, 5);
 	rebuild_voltage_nets();
 	solve_LU_core();
 	locate_maxIRdrop();
@@ -1680,19 +1679,19 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 
 	size_t radius = 1;
 	add_pad = find_max_IRdrop_candi(rm_pad, radius);
+	//if(add_pad == NULL)
+		//clog<<"NULL add pad: "<<endl;
+	//clog<<"add_pad: "<<*add_pad<<endl;
 	// find its neiboring pad candidates	
 	form_nbr_pads(rm_pad, nbr_pads);
 	//clog<<"rm_pad: "<<*rm_pad<<endl;	
 	if(nbr_pads.size()==0){
-		//clog<<"nbr_pads.size==0, return. "<<endl;
 		 return;
 	}
-	//clog<<"nbr_pads.size: "<<nbr_pads.size()<<endl;
 	
 	// random select a valid nbr pad
 	nbr_index = random_gen(0, nbr_pads.size()-1);
-	//clog<<"nbr_index: "<<nbr_index<<endl;
-	if(add_pad->name == rm_pad->name) 
+	if(add_pad == NULL || add_pad->name == rm_pad->name) 
 		add_pad = nbr_pads[nbr_index];
 	// choose candi pads by mean shift method
 	add_pad->flag = true;
@@ -1702,7 +1701,6 @@ void Circuit::one_move(vector<Node*>&nodesUpdate_move,
 	//Net *rm_net, *add_net;
 	index_rm_net = rebuild_voltage_nets_one_move(rm_pad, add_pad, 
 		rm_net, add_net);
-	//clog<<"rm_net, add_net: "<<*rm_net<<" "<<*add_net<<endl;
 	solve_LU_core();
 	//solve_LU();
 	//solve_GS();
@@ -2818,3 +2816,23 @@ Node *Circuit::find_VDD_spot(Node * nd){
 	}
 	return nd_c_new;
 }
+
+double Circuit::std_dvi(){
+	double avg_drop = 0;
+	double sum_drop = 0;
+	double std_dvi = 0;
+	double sum_dvi = 0;
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		sum_drop += VDD - nodelist[i]->value;
+	}
+	avg_drop = sum_drop / nodelist.size()-1;
+	
+	for(size_t i=0;i<nodelist.size()-1;i++){
+		double drop = VDD-nodelist[i]->value;
+		sum_dvi += (drop - avg_drop)*(drop - avg_drop); 
+	}
+	std_dvi = sqrt(sum_dvi / nodelist.size()-1);
+	return std_dvi;
+}
+
+
